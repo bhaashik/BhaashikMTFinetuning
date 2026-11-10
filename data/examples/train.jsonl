@@ -1,0 +1,2 @@
+{"id": "example-train-0", "source": "हम घरे जात बानी।", "target": "मैं घर जा रहा हूँ।", "document_id": "example-train-doc0", "domain": "illustrative", "provenance": "original illustrative fixture; not research gold", "license": "MIT"}
+{"id": "example-train-1", "source": "आज मौसम नीक बा।", "target": "आज मौसम अच्छा है।", "document_id": "example-train-doc1", "domain": "illustrative", "provenance": "original illustrative fixture; not research gold", "license": "MIT"}

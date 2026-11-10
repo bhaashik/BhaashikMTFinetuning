@@ -1,0 +1,19 @@
+{
+  "model": "facebook/nllb-200-distilled-600M",
+  "revision": null,
+  "src_lang": "bho_Deva",
+  "tgt_lang": "hin_Deva",
+  "train_file": "data/examples/train.jsonl",
+  "dev_file": "data/examples/dev.jsonl",
+  "output_dir": "runs/bho-hin",
+  "mode": "lora",
+  "seed": 42,
+  "epochs": 3,
+  "learning_rate": 0.0002,
+  "batch_size": 1,
+  "gradient_accumulation_steps": 16,
+  "max_length": 128,
+  "precision": "fp16",
+  "gradient_checkpointing": true,
+  "lora_rank": 8
+}

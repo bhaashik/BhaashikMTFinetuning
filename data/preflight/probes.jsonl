@@ -1,0 +1,4 @@
+{"id":"retention-en-hi-1","source":"The book is on the table.","target":"किताब मेज़ पर है।","src_lang":"eng_Latn","tgt_lang":"hin_Deva","group":"retention","domain":"illustrative","provenance":"original software fixture; not research gold"}
+{"id":"retention-hi-en-1","source":"आज मौसम अच्छा है।","target":"The weather is good today.","src_lang":"hin_Deva","tgt_lang":"eng_Latn","group":"retention","domain":"illustrative","provenance":"original software fixture; not research gold"}
+{"id":"adaptation-bho-hi-1","source":"हम घरे जात बानी।","target":"मैं घर जा रहा हूँ।","src_lang":"bho_Deva","tgt_lang":"hin_Deva","group":"adaptation","domain":"illustrative","provenance":"original software fixture; not research gold"}
+{"id":"adaptation-mag-hi-1","source":"मगही","target":"मगही","src_lang":"mag_Deva","tgt_lang":"hin_Deva","group":"adaptation","domain":"illustrative","provenance":"identity-label fixture only; not a language-quality test"}

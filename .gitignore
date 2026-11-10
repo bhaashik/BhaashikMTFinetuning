@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+runs/
+data/local/
+.ipynb_checkpoints/
+.cache/
+build/
+dist/
+
+# Local run configs, downloaded weights and exported artifacts
+configs/local-*.json
+*.safetensors
+*.pt
+*.pth
+*.bin
+*.zip
+.env
+.env.*
