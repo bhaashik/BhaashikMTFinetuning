@@ -4,17 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bhaashik-mt"
-version = "0.1.0"
+version = "0.1.1"
 description = "Reproducible neural MT adaptation for low-resource Hindi-belt languages"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 license = {text = "MIT"}
 dependencies = ["sacrebleu==2.4.3", "numpy>=1.26,<3"]
 
 [project.optional-dependencies]
-preflight = ["sentencepiece==0.2.0", "safetensors>=0.4,<1"]
-repairs = ["sentencepiece==0.2.0", "safetensors>=0.4,<1", "protobuf>=4.25,<6"]
-train = ["torch>=2.2,<3", "transformers==4.46.3", "datasets==3.1.0", "accelerate==1.1.1", "peft==0.13.2", "sentencepiece==0.2.0", "protobuf>=4.25,<6"]
+preflight = ["sentencepiece==0.2.0; python_version < '3.13'", "sentencepiece==0.2.1; python_version >= '3.13'", "safetensors>=0.4,<1"]
+repairs = ["sentencepiece==0.2.0; python_version < '3.13'", "sentencepiece==0.2.1; python_version >= '3.13'", "safetensors>=0.4,<1", "protobuf>=4.25,<6"]
+train = ["torch>=2.2,<3", "transformers==4.46.3", "datasets==3.1.0", "accelerate==1.1.1", "peft==0.13.2", "sentencepiece==0.2.0; python_version < '3.13'", "sentencepiece==0.2.1; python_version >= '3.13'", "protobuf>=4.25,<6"]
 dev = ["pytest>=8,<9", "Markdown==3.7"]
 web = ["playwright>=1.48,<2"]
 

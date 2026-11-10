@@ -53,3 +53,5 @@ To resume, attach the prior checkpoint/output dataset, copy the needed checkpoin
 Install `.[train,repairs]`, supply immutable original assets and reviewed probes, and follow the [preflight](preflight.md) / [separate repair](repairs.md) guides. Snapshot operations require a new output directory per stage and can copy gigabytes of weights. They do not implement OneNMT training or automatically make new tokens useful.
 
 Use the [100-step pilot](titan-v.md#measure-a-pilot-instead-of-guessing-training-time) with platform-appropriate paths to measure runtime. This release has not been benchmarked on a hosted Kaggle GPU; CPU integration tests demonstrate software mechanics, not Kaggle hardware fit or translation quality.
+
+Setup supports Python 3.10–3.13. The shared notebook installer requires wheels for SentencePiece/Tokenizers and shows original pip failures. Python 3.13 selects SentencePiece 0.2.1; older supported versions keep 0.2.0. It does not attempt sudo/toolchain installation. Refresh an old checkout deliberately and restart the kernel if model libraries were already imported.

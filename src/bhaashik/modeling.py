@@ -125,7 +125,7 @@ def train(config_path):
     write_json(output / "run_manifest.json", {
         "config": config, "data": data_audit, "train": train_result.metrics, "dev": dev_metrics,
         "seconds": time.time() - started, "python": platform.python_version(),
-        "packages": {p: version(p) for p in ("torch", "transformers", "peft", "datasets", "accelerate")},
+        "packages": {p: version(p) for p in ("torch", "transformers", "peft", "datasets", "accelerate", "sentencepiece", "tokenizers")},
         "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
         "resolved_model_revision": getattr(model.config, "_commit_hash", None),
         "trainable_parameters": trainable_parameters,

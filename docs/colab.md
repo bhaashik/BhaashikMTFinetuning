@@ -4,7 +4,7 @@
 
 [Open the NLLB research notebook](https://colab.research.google.com/github/bhaashik/BhaashikMTFinetuning/blob/main/notebooks/01_nllb_research.ipynb). Select a GPU hardware accelerator in Runtime settings before running the setup cell. Free GPU allocation and session duration vary; access is not guaranteed. Check the assigned device, not the notebook's metadata.
 
-The notebook clones into `/content/BhaashikMTFinetuning` and installs the project. It preserves the runtime's CUDA PyTorch rather than automatically replacing it. Dependencies are pinned for the HF training stack; the exact Colab runtime has not been validated here. Run setup before importing Torch/Transformers. If installation changes already-imported packages, restart the session and rerun setup before proceeding.
+The notebook clones into `/content/BhaashikMTFinetuning` and installs the project. It preserves the runtime's CUDA PyTorch rather than automatically replacing it. Dependencies are pinned for the HF training stack; the exact Colab runtime has not been validated here. Run setup before importing Torch/Transformers. The shared setup script requires native wheels for SentencePiece/Tokenizers and streams pip errors; it does not install compiler tools or call sudo. If installation changes already-imported packages, restart the session and rerun setup before proceeding.
 
 Check actual GPU execution:
 
@@ -65,3 +65,13 @@ Install `.[train,repairs]` in the checkout. Supply a complete immutable local as
 ## Timing and limitations
 
 No hosted Colab GPU timing or model quality result has been measured for this release. Installation/model downloads and notebook quotas affect wall time. Measure a short pilot on the assigned device, then extrapolate optimizer steps; do not assume the same runtime across free sessions. See the [Titan V guide](titan-v.md#measure-a-pilot-instead-of-guessing-training-time) for a 100-step config example that also works here.
+
+## Python 3.13 and the ver-0.2 installation failure
+
+The saved ver-0.2 error log showed Python 3.13 trying to compile `sentencepiece==0.2.0`. That release has no Linux CPython 3.13 wheel. The corrected package selects `sentencepiece==0.2.1` on Python 3.13, whose published wheel avoids that build; Python 3.10–3.12 retain 0.2.0. Tokenizers 0.20.3 already has a CPython 3.13 wheel.
+
+The updated `01_nllb_research-ver-0.2.ipynb` keeps its Drive mount cell and uses the same installer as the main notebooks. The automatic `sudo apt-get` compiler fallback should be removed from any older notebook copy: it misdiagnoses unrelated pip failures and can fail separately due to permissions or repository access.
+
+Use a fresh runtime and open the updated notebook from GitHub. If reusing `/content/BhaashikMTFinetuning` from an earlier failed attempt, save any local changes, then update that checkout with `git -C /content/BhaashikMTFinetuning pull --ff-only`. A kernel restart does not update files on disk. Do not reset/delete local work blindly. If model libraries are already imported, restart the session/kernel before running the shared installer.
+
+The Python 3.13 CPU suite passes with Torch 2.6.0 and SentencePiece 0.2.1, including actual tiny-model training/generation and repair save/reload tests. This does not certify the reported Colab Torch 2.14.1/CUDA 13 GPU image; setup additionally checks imports and actual FP16 GPU execution in the selected runtime. If installation still fails, retain the **first pip error**, interpreter version and setup output. Compiler installation is not a generic remedy for version conflicts, network failures or missing wheels.

@@ -1,6 +1,6 @@
 # Quickstart: from checkout to research artifacts
 
-Choose [Colab](colab.md), [Kaggle](kaggle.md), or a [Titan V desktop](titan-v.md) for platform-specific installation and storage. This guide runs all commands from the repository root. Python 3.10–3.12 is the intended range; local validation uses Python 3.12 and CPU PyTorch 2.5.1, and CI uses Python 3.11. GPU workflows still require a real hardware smoke test.
+Choose [Colab](colab.md), [Kaggle](kaggle.md), or a [Titan V desktop](titan-v.md) for platform-specific installation and storage. This guide runs all commands from the repository root. Python 3.10–3.13 is the intended range; local validation covers Python 3.12 / CPU PyTorch 2.5.1 and Python 3.13 / CPU PyTorch 2.6.0; CI covers Python 3.11 and 3.13. GPU workflows still require a real hardware smoke test.
 
 ## 1. Install and verify mechanics
 

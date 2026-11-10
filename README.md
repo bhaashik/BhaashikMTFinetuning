@@ -18,7 +18,7 @@ bhaashik audit --train data/examples/train.jsonl --dev data/examples/dev.jsonl -
 pytest
 ```
 
-Use [the notebook](notebooks/01_nllb_research.ipynb) on Colab or Kaggle for GPU training. Run commands from the repository root. Set Internet on in Kaggle; accept any upstream model access terms yourself. No token is required for public ungated models. Never put credentials in notebooks. Python 3.10–3.12 is the intended toolchain; CI uses 3.11.
+Use [the notebook](notebooks/01_nllb_research.ipynb) on Colab or Kaggle for GPU training. Run commands from the repository root. Set Internet on in Kaggle; accept any upstream model access terms yourself. No token is required for public ungated models. Never put credentials in notebooks. Python 3.10–3.13 is the intended toolchain; CI covers 3.11 and 3.13. Python 3.13 selects SentencePiece 0.2.1 wheels; older supported Python versions retain 0.2.0.
 
 ```bash
 # Replace the tiny illustrative data before research training.
@@ -28,6 +28,8 @@ bhaashik translate --model runs/bho-hin --src bho_Deva --tgt hin_Deva \
 bhaashik evaluate --input runs/bho-hin/predictions.jsonl --output runs/bho-hin/evaluation.json
 bhaashik errors --input runs/bho-hin/predictions.jsonl --output runs/bho-hin/annotations.csv
 ```
+
+If an older Colab notebook tries to compile SentencePiece on Python 3.13, refresh the checkout and use the updated setup cell. Do not use a catch-all `sudo apt-get` fallback. See [Python 3.13 troubleshooting](docs/colab.md#python-313-and-the-ver-02-installation-failure).
 
 ## Model strategy
 
