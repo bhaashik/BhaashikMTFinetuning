@@ -89,7 +89,14 @@ def setup(root, extras='train', require_cuda=False):
     subprocess.run([sys.executable, '-m', 'pip', 'install',
                     '--only-binary=sentencepiece,tokenizers', '-e', spec],
                    cwd=root, check=True)
-    verify_stack(require_cuda=require_cuda, extras=extras)
+    # Editable installs add a .pth file to site-packages. This running process
+    # started before pip wrote that file, so it may not yet be able to import
+    # bhaashik. Verify in a new interpreter, which processes the new .pth file.
+    check = [sys.executable, str(Path(__file__).resolve()), '--verify-only',
+             '--extras', extras]
+    if require_cuda:
+        check.append('--require-cuda')
+    subprocess.run(check, cwd=root, env=os.environ.copy(), check=True)
 
 
 def main():
@@ -99,9 +106,17 @@ def main():
                         help='base: CPU data/audit; preflight: CPU tokenizer checks; train: HF/PEFT; train,repairs: full extras')
     parser.add_argument('--require-cuda', action='store_true',
                         help='Fail unless GPU is available and FP16 matmul works (train modes only)')
+    parser.add_argument('--verify-only', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
     try:
-        setup(args.root, args.extras, args.require_cuda)
+        if args.verify_only:
+            validate_python()
+            if args.require_cuda and args.extras not in ('train', 'train,repairs'):
+                raise ValueError('--require-cuda only applies to training extras')
+            configure_backends()
+            verify_stack(require_cuda=args.require_cuda, extras=args.extras)
+        else:
+            setup(args.root, args.extras, args.require_cuda)
     except subprocess.CalledProcessError as error:
         print(f'Installation failed with exit code {error.returncode}; inspect the pip error above. '
               'Fix that specific error before rerunning.', file=sys.stderr)
