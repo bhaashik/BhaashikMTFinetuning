@@ -4,10 +4,12 @@
 
 1. Open [Kaggle Code](https://www.kaggle.com/code) and create a notebook.
 2. Import `notebooks/01_nllb_research.ipynb` from the GitHub repository, or download that file and upload it through the notebook import dialog.
-3. Enable an available GPU accelerator and Internet in notebook settings. Account verification, GPU quota and platform policy may be prerequisites.
-4. Run the setup cell before importing Torch/Transformers. It clones into `/kaggle/working/BhaashikMTFinetuning` and preserves the provided PyTorch/CUDA runtime.
+3. For dataset inspection, sentence-aligned text preparation and JSONL validation, choose **Accelerator = None**. Enable an available GPU only for NLLB generation/training. Internet is needed for cloning and pip/model downloads.
+4. Run the original notebook setup cell with `SETUP_MODE='base'` on CPU. For GPU work, choose a GPU accelerator, restart into a fresh session, and set `SETUP_MODE='train'`. The installer only requires CUDA in training modes. It clones into `/kaggle/working/BhaashikMTFinetuning` and preserves the provided PyTorch/CUDA runtime.
 
-If packages were already imported before installation changed them, restart the kernel and rerun setup. Check actual accelerator execution:
+The installer disables unused Transformers TensorFlow/Flax integration before imports, and the optional extras no longer force a downgrade to Protobuf 5 on Kaggle's newer TensorFlow runtime. Existing package conflicts from a previous failed install can persist: use a fresh Kaggle session. The `base` mode deliberately does not install Transformers/PEFT/Datasets; it supports CPU data auditing only. The `preflight` mode adds SentencePiece and Safetensors for lightweight tokenizer checks. GPU training still requires a matching HF/PyTorch stack and actual device validation.
+
+If packages were already imported before installation changed them, restart the kernel and rerun setup. On GPU only, check actual accelerator execution:
 
 ```python
 import torch
@@ -50,7 +52,7 @@ To resume, attach the prior checkpoint/output dataset, copy the needed checkpoin
 
 ## OneNMT branch and diagnostics
 
-Install `.[train,repairs]`, supply immutable original assets and reviewed probes, and follow the [preflight](preflight.md) / [separate repair](repairs.md) guides. Snapshot operations require a new output directory per stage and can copy gigabytes of weights. They do not implement OneNMT training or automatically make new tokens useful.
+Install `.[train,repairs]` only when doing checkpoint repairs (use `SETUP_MODE='train,repairs'`), supply immutable original assets and reviewed probes, and follow the [preflight](preflight.md) / [separate repair](repairs.md) guides. Snapshot operations require a new output directory per stage and can copy gigabytes of weights. They do not implement OneNMT training or automatically make new tokens useful.
 
 Use the [100-step pilot](titan-v.md#measure-a-pilot-instead-of-guessing-training-time) with platform-appropriate paths to measure runtime. This release has not been benchmarked on a hosted Kaggle GPU; CPU integration tests demonstrate software mechanics, not Kaggle hardware fit or translation quality.
 
