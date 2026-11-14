@@ -10,6 +10,12 @@ A research toolkit for adapting encoder–decoder MT models to **Bhojpuri, Maith
 
 Clone the repository first. For GPU training, install the platform-appropriate CUDA PyTorch before the project extras; see the platform guides. Tests run on CPU without downloading research weights.
 
+### Kaggle / Colab setup (original notebooks)
+
+For corpus inspection and CPU-only preparation, choose **Accelerator: None**, and use the existing notebook setup cell with `SETUP_MODE='base'`. For the original OneNMT preflight notebook, `SETUP_MODE='preflight'` adds SentencePiece and Safetensors without loading the heavy training stack. When you switch to MT training, enable the GPU, restart the session and change to `SETUP_MODE='train'` to verify CUDA. The original `01_nllb_research.ipynb` and `02_onenmt_preflight_repairs.ipynb` now expose these modes; no `*-ver2` notebooks were edited.
+
+The notebook installer forces `USE_TF=0` and `USE_FLAX=0` before importing Transformers, since this project uses PyTorch. It no longer pins Protobuf below 6 in training/repair extras, avoiding the documented conflict with newer Kaggle TensorFlow installations. Other preinstalled Kaggle packages may still produce pip resolver warnings; use a fresh session after a failed installation rather than stacking repairs. These changes have local unit-test coverage, but were not verified by running a hosted Kaggle GPU training session.
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
