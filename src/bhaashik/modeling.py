@@ -1,6 +1,7 @@
 """NLLB HF training, inference and explicit language-token extension."""
 import json
 import platform
+import re
 import time
 from pathlib import Path
 from importlib.metadata import version
@@ -8,12 +9,34 @@ from .data import audit, read_jsonl, file_hash, write_json
 
 
 def require_language(tokenizer, language):
-    if language not in tokenizer.additional_special_tokens:
+    """Resolve registered NLLB language IDs on Transformers 4.x and 5.x."""
+    # "additional_special_tokens" disappeared in Transformers 5. The
+    # "all_special_tokens" interface includes the NLLB language markers in
+    # both releases. Check the vocabulary too: an ordinary subword is not a
+    # valid NLLB language tag, and an unknown ID must never be silently used.
+    if not isinstance(language, str) or not re.fullmatch(r"[a-z]{3}_[A-Z][a-z]{3}", language):
+        raise ValueError(f"Invalid NLLB language tag: {language!r}")
+    if language not in tokenizer.all_special_tokens:
         raise ValueError(f"Unsupported language token {language}; use extend before training")
+    vocabulary = tokenizer.get_vocab()
+    if language not in vocabulary:
+        raise ValueError(f"Unknown language token: {language}")
     token_id = tokenizer.convert_tokens_to_ids(language)
-    if token_id == tokenizer.unk_token_id:
+    if (not isinstance(token_id, int) or token_id == tokenizer.unk_token_id
+            or token_id != vocabulary[language]):
         raise ValueError(f"Unknown language token: {language}")
     return token_id
+
+
+def add_language_token(tokenizer, language):
+    """Register a new language marker while retaining existing NLLB markers."""
+    if hasattr(tokenizer, "extra_special_tokens"):
+        return tokenizer.add_special_tokens(
+            {"extra_special_tokens": [language]}, replace_extra_special_tokens=False
+        )
+    return tokenizer.add_special_tokens(
+        {"additional_special_tokens": [language]}, replace_additional_special_tokens=False
+    )
 
 
 def load(model_id, revision=None):
@@ -27,7 +50,7 @@ def load(model_id, revision=None):
 
 def extend(model_id, output, language, donor="hin_Deva", revision=None):
     import torch
-    if not __import__('re').fullmatch(r"[a-z]{3}_[A-Z][a-z]{3}", language):
+    if not re.fullmatch(r"[a-z]{3}_[A-Z][a-z]{3}", language):
         raise ValueError("Use a language_Script tag such as raj_Deva; document its linguistic scope")
     output = Path(output)
     if output.exists() and any(output.iterdir()):
@@ -36,7 +59,7 @@ def extend(model_id, output, language, donor="hin_Deva", revision=None):
     donor_id = require_language(tokenizer, donor)
     if language in tokenizer.get_vocab():
         raise ValueError(f"{language} already exists; use normal finetuning")
-    tokenizer.add_special_tokens({"additional_special_tokens": [language]}, replace_additional_special_tokens=False)
+    add_language_token(tokenizer, language)
     # Tokenizers can have sparse IDs; pretrained model tables may also be padded.
     # Never shrink an existing model or assume len(tokenizer) is max ID + 1.
     model.resize_token_embeddings(max(model.config.vocab_size, max(tokenizer.get_vocab().values()) + 1))
