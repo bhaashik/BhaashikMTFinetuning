@@ -1,6 +1,7 @@
 """Strict parallel-data loading and conservative split leakage checks."""
 import hashlib
 import json
+import re
 import unicodedata
 from pathlib import Path
 
@@ -28,6 +29,11 @@ def read_jsonl(path, predictions=False):
             for field in ("document_id", "domain"):
                 if field in row and (not isinstance(row[field], str) or not row[field].strip()):
                     raise ValueError(f"{path}:{line_no}: invalid {field}")
+            if "source_lang" in row or "target_lang" in row:
+                for field in ("source_lang", "target_lang"):
+                    tag = row.get(field)
+                    if not isinstance(tag, str) or not re.fullmatch(r"[a-z]{3}_[A-Z][a-z]{3}", tag):
+                        raise ValueError(f"{path}:{line_no}: invalid or missing {field} language_Script tag")
             ids.add(row["id"])
             rows.append(row)
     if not rows:
