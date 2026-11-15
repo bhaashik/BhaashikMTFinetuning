@@ -198,16 +198,19 @@ def compare_dev(reference_path, predictions_by_model, output_dir):
     # This is a *development* report; do not substitute test material here.
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    all_predictions = {
+        str(model_name): {r["id"]: r["prediction"] for r in
+                          read_jsonl(prediction_path, predictions=True)}
+        for model_name, prediction_path in predictions_by_model.items()
+    }
     sheet_rows = []
     for source_row in gold:
         view = {"id": source_row["id"], "source": source_row["source"],
                 "reference": source_row["target"],
                 "domain": source_row.get("domain", ""),
                 "document_id": source_row.get("document_id", "")}
-        for model_name, prediction_path in predictions_by_model.items():
-            model_predictions = {r["id"]: r["prediction"] for r in
-                                 read_jsonl(prediction_path, predictions=True)}
-            view[str(model_name)] = model_predictions[source_row["id"]]
+        for model_name, model_predictions in all_predictions.items():
+            view[model_name] = model_predictions[source_row["id"]]
         sheet_rows.append(view)
     with (output_dir / "dev_side_by_side.csv").open("w", newline="", encoding="utf-8") as handle:
         fields = ["id", "source", "reference", "domain", "document_id"] + [
