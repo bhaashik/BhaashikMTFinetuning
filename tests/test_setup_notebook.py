@@ -2,6 +2,7 @@
 import importlib.util
 import os
 from pathlib import Path
+from importlib.metadata import PackageNotFoundError
 from unittest.mock import patch
 
 import pytest
@@ -35,7 +36,8 @@ def test_disable_unused_frameworks():
 ])
 def test_install_mode_does_not_force_protobuf(tmp_path, mode, expected):
     (tmp_path / "pyproject.toml").write_text("[project]\nname='placeholder'\n")
-    with patch.object(setup_script.subprocess, "run") as run:
+    with patch.object(setup_script, "version", side_effect=PackageNotFoundError("torchao")), \
+         patch.object(setup_script.subprocess, "run") as run:
         setup_script.setup(tmp_path, extras=mode)
     assert run.call_count == 2
     install, smoke = (call.args[0] for call in run.call_args_list)
@@ -49,7 +51,8 @@ def test_cuda_check_only_for_training(tmp_path):
     (tmp_path / "pyproject.toml").write_text("[project]\nname='placeholder'\n")
     with pytest.raises(ValueError):
         setup_script.setup(tmp_path, extras="base", require_cuda=True)
-    with patch.object(setup_script.subprocess, "run") as run:
+    with patch.object(setup_script, "version", side_effect=PackageNotFoundError("torchao")), \
+         patch.object(setup_script.subprocess, "run") as run:
         setup_script.setup(tmp_path, extras="train", require_cuda=True)
     assert run.call_count == 2
     assert run.call_args_list[-1].args[0][-1] == "--require-cuda"
@@ -62,3 +65,28 @@ def test_verify_only_mode_skips_installation():
         assert setup_script.main() == 0
     run.assert_not_called()
     assert verify.call_args.kwargs == {"require_cuda": False, "extras": "base"}
+
+
+def test_obsolete_torchao_removed_only_for_training(tmp_path):
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='placeholder'\n")
+
+    with patch.object(setup_script, "version", return_value="0.10.0"), \
+         patch.object(setup_script.subprocess, "run") as run:
+        setup_script.setup(tmp_path, extras="train")
+    assert run.call_count == 3
+    assert run.call_args_list[0].args[0][-3:] == ["uninstall", "-y", "torchao"]
+
+    with patch.object(setup_script, "version", return_value="0.10.0"), \
+         patch.object(setup_script.subprocess, "run") as run:
+        setup_script.setup(tmp_path, extras="base")
+    assert run.call_count == 2
+
+    with patch.object(setup_script, "version", return_value="0.18.0"), \
+         patch.object(setup_script.subprocess, "run") as run:
+        setup_script.setup(tmp_path, extras="train")
+    assert run.call_count == 2
+
+    with patch.object(setup_script, "version", side_effect=PackageNotFoundError("torchao")), \
+         patch.object(setup_script.subprocess, "run") as run:
+        setup_script.setup(tmp_path, extras="train")
+    assert run.call_count == 2
