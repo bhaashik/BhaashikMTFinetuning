@@ -165,6 +165,7 @@ def generate_bhashaverse_dev(assets, dev_path, output, device=None, batch_size=1
     for row in rows:
         src, tgt = resolve_languages(row)
         row["src_lang"], row["tgt_lang"] = src, tgt
+        row.setdefault("group", "unspecified")
     outputs, metadata = generate_probes(
         assets, rows, device=device or ("cuda" if torch.cuda.is_available() else "cpu"),
         precision="fp16" if (device or ("cuda" if torch.cuda.is_available() else "cpu")) == "cuda" else "fp32",
