@@ -37,6 +37,19 @@ bhaashik errors --input runs/bho-hin/predictions.jsonl --output runs/bho-hin/ann
 
 If an older Colab notebook tries to compile SentencePiece on Python 3.13, refresh the checkout and use the updated setup cell. Do not use a catch-all `sudo apt-get` fallback. See [Python 3.13 troubleshooting](docs/colab.md#python-313-and-the-ver-02-installation-failure).
 
+## Explicit multilingual adaptation
+
+The [language-tag and three-model adaptation guide](docs/multilingual-adaptation.md)
+documents a shared JSONL `source_lang`/`target_lang` contract, non-destructive
+migration, and model-specific conditioning for NLLB, IndicTrans2 and
+BhashaVerse/OneNMT. Use the existing
+[`01_nllb_research.ipynb`](notebooks/01_nllb_research.ipynb) or the
+dedicated [IndicTrans2](notebooks/03_indictrans2_adaptation.ipynb) and
+[BhashaVerse](notebooks/04_bhashaverse_adaptation.ipynb) notebooks.
+Their vocabularies, runtime requirements and checkpoint guarantees differ:
+an extra text prefix is not native language support. Research inference and
+training paths for unsupported languages require independent verification.
+
 ## Pretraining review and additional languages
 
 The [pretraining evaluation guide](docs/pretraining-review.md) and original

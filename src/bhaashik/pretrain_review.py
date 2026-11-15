@@ -177,7 +177,7 @@ def compare_dev(reference_path, predictions_by_model, output_dir):
         ordered = []
         for row in gold:
             candidate = actual[row["id"]]
-            for field in ("source", "target", "document_id", "domain"):
+            for field in ("source", "target", "document_id", "domain", "source_lang", "target_lang"):
                 if candidate.get(field) != row.get(field):
                     raise ValueError(f"{model_name}: {field} differs on {row['id']}")
             ordered.append(candidate)
@@ -186,7 +186,20 @@ def compare_dev(reference_path, predictions_by_model, output_dir):
         for row in ordered:
             for flag in filter(None, triage(row).split(";")):
                 flag_counts[flag] += 1
+        direction_groups = defaultdict(list)
+        for record in ordered:
+            route = (record.get("source_lang", "unspecified"),
+                     record.get("target_lang", "unspecified"))
+            direction_groups[route].append(record)
+        direction_scores = {}
+        for (source_lang, target_lang), samples in sorted(direction_groups.items()):
+            score = metrics([row["prediction"] for row in samples],
+                            [row["target"] for row in samples])
+            direction_scores[f"{source_lang}->{target_lang}"] = {
+                "n": len(samples), "bleu": round(score["bleu"], 4),
+                "chrfpp": round(score["chrfpp"], 4)}
         rows.append({"model": model_name, "n": len(ordered),
+                     "directions": direction_scores,
                      "bleu": round(result["bleu"], 4),
                      "chrfpp": round(result["chrfpp"], 4),
                      "prediction_sha256": file_hash(prediction_path),
@@ -226,6 +239,15 @@ def compare_dev(reference_path, predictions_by_model, output_dir):
         writer = csv.DictWriter(handle, ["model", "n", "bleu", "chrfpp", "prediction_sha256"])
         writer.writeheader()
         writer.writerows({k: row[k] for k in writer.fieldnames} for row in rows)
+    with (output_dir / "dev_direction_comparison.csv").open(
+            "w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(
+            handle, ["model", "direction", "n", "bleu", "chrfpp"])
+        writer.writeheader()
+        for model in rows:
+            for direction, score in model["directions"].items():
+                writer.writerow({"model": model["model"], "direction": direction,
+                                 **score})
     return report
 
 

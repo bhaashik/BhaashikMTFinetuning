@@ -5,6 +5,7 @@ import random
 import numpy as np
 from sacrebleu.metrics import BLEU, CHRF
 from .data import read_jsonl, file_hash, write_json
+from collections import defaultdict
 
 
 def metrics(hypotheses, references):
@@ -23,6 +24,15 @@ def evaluate(path, output, baseline=None, samples=1000, seed=42):
         subset = [r for r in rows if r.get("domain", "unspecified") == domain]
         result["domains"][domain] = {"n": len(subset), "scores": metrics(
             [r["prediction"] for r in subset], [r["target"] for r in subset])}
+    by_direction = defaultdict(list)
+    for row in rows:
+        by_direction[(row.get("source_lang", "unspecified"),
+                      row.get("target_lang", "unspecified"))].append(row)
+    result["directions"] = {
+        f"{src}->{tgt}": {"n": len(subset),
+                          "scores": metrics([r["prediction"] for r in subset],
+                                            [r["target"] for r in subset])}
+        for (src, tgt), subset in sorted(by_direction.items())}
     if baseline:
         if samples < 1:
             raise ValueError("bootstrap samples must be positive")
@@ -30,7 +40,7 @@ def evaluate(path, output, baseline=None, samples=1000, seed=42):
         if set(base) != {r["id"] for r in rows}:
             raise ValueError("baseline IDs must match the candidate exactly")
         for row in rows:
-            if any(row.get(k) != base[row["id"]].get(k) for k in ("source", "target", "document_id", "domain")):
+            if any(row.get(k) != base[row["id"]].get(k) for k in ("source", "target", "document_id", "domain", "source_lang", "target_lang")):
                 raise ValueError(f"baseline content/metadata mismatch: {row['id']}")
         base_hyp = [base[r["id"]]["prediction"] for r in rows]
         base_scores = metrics(base_hyp, references)

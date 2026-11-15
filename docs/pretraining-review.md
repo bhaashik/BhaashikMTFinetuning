@@ -26,6 +26,14 @@ Sources:
 - [IndicTrans2 distilled Indic–Indic](https://huggingface.co/ai4bharat/indictrans2-indic-indic-dist-320M)
 - [BhashaVerse / OneNMT HF card and mandatory inference script](https://huggingface.co/ltrciiith/bhashaverse)
 
+## Model-specific fine-tuning notebooks and language metadata
+
+For explicit per-sentence `source_lang` and `target_lang` routes, see the
+[multilingual adaptation guide](multilingual-adaptation.md). The NLLB notebook
+supports mixed-language rows, native/dedicated language tokens and experimental
+text-prefix proxies. IndicTrans2 and BhashaVerse adaptation use separate
+notebooks with their model-specific tokenizer/dictionary and dependency stacks.
+
 ## Running the notebook
 
 1. Clone in the existing location:
