@@ -16,8 +16,8 @@ from .multilingual import resolve_languages
 
 
 def processing_pair(src, tgt, *, strategy, proxy_src=None, proxy_tgt=None):
-    if strategy not in ("native", "text_prefix"):
-        raise ValueError("IndicTrans2 strategy must be native or text_prefix")
+    if strategy not in ("native", "text_prefix", "dedicated_token"):
+        raise ValueError("IndicTrans2 strategy must be native, text_prefix or dedicated_token")
     if strategy == "native":
         if src not in INDICTRANS2_LANGS or tgt not in INDICTRANS2_LANGS:
             raise ValueError(f"IndicTrans2 does not natively support {src}->{tgt}")
@@ -52,6 +52,8 @@ def prepare_indic_rows(rows, processor, *, strategy, proxy_src=None, proxy_tgt=N
         prepared = processor.preprocess_batch([source], src_lang=ps, tgt_lang=pt)
         if len(prepared) != 1:
             raise ValueError("IndicProcessor returned an unexpected batch length")
+        if strategy == "dedicated_token":
+            prepared[0] = f"<bhaashik_src_{src}> <bhaashik_tgt_{tgt}> " + prepared[0]
         inputs.append(prepared[0])
         # Target references remain CLEAN. The source language marker is learned
         # through source conditioning, not through contamination of references.
@@ -113,6 +115,19 @@ def train_indictrans2(config_path):
                                         revision=cfg.get("revision"))
     model = AutoModelForSeq2SeqLM.from_pretrained(
         selected_model, trust_remote_code=True, revision=cfg.get("revision"))
+    if strategy == "dedicated_token":
+        # Additional special tokens need new embeddings that ordinary attention
+        # LoRA would freeze. Use full finetuning with the resized checkpoint.
+        if mode != "full":
+            raise ValueError("IndicTrans2 dedicated_token requires mode=full")
+        language_tokens = sorted({f"<bhaashik_{side}_{lang}>"
+                                   for route in routes + dev_routes
+                                   for side, lang in (("src", route["source_lang"]),
+                                                     ("tgt", route["target_lang"]))})
+        old_vocab_size = len(tok)
+        tok.add_special_tokens({"additional_special_tokens": language_tokens})
+        if len(tok) > old_vocab_size:
+            model.resize_token_embeddings(len(tok))
     max_length = cfg.get("max_length", 128)
     def pack(texts, labels):
         encoded = tok(texts, text_target=labels, max_length=max_length,
@@ -167,3 +182,56 @@ def train_indictrans2(config_path):
         "note": "Text-prefix proxy conditioning is experimental, not native IndicTrans2 support. "
                 "Inspect script normalization and generation on human-checked probes."})
     return dev_metrics
+
+def generate_indictrans2(model_id, dev_path, output, *, strategy="native",
+                        proxy_src=None, proxy_tgt=None, batch_size=4,
+                        max_length=256, max_new_tokens=256, beams=4,
+                        allow_remote_code=False):
+    """Opt-in inference for native or explicitly adapted IndicTrans2 models.
+
+    A model trained using target-language proxies may require custom
+    postprocessing and language expert validation. All outputs retain row tags.
+    """
+    if not allow_remote_code:
+        raise ValueError("Review upstream model implementation and explicitly enable custom code")
+    if batch_size < 1 or max_length < 1 or max_new_tokens < 1 or beams < 1:
+        raise ValueError("Positive batch/length/beam values required")
+    from IndicTransToolkit.processor import IndicProcessor
+    import torch
+    from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+    from .model_comparisons import _write_predictions
+    rows = read_jsonl(dev_path)
+    prepared, _, routes = prepare_indic_rows(
+        rows, IndicProcessor(inference=True), strategy=strategy,
+        proxy_src=proxy_src, proxy_tgt=proxy_tgt)
+    tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    model = AutoModelForSeq2SeqLM.from_pretrained(
+        model_id, trust_remote_code=True)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model.to(device).eval()
+    predicted = []
+    processor = IndicProcessor(inference=True)
+    with torch.inference_mode():
+        for i in range(0, len(rows), batch_size):
+            text_batch = prepared[i:i+batch_size]
+            route_batch = routes[i:i+batch_size]
+            encoded = tok(text_batch, padding="longest", truncation=True,
+                          max_length=max_length, return_tensors="pt",
+                          return_attention_mask=True).to(device)
+            sequences = model.generate(**encoded, num_beams=beams,
+                                       max_new_tokens=max_new_tokens)
+            raw = tok.batch_decode(sequences, skip_special_tokens=True)
+            for text, route in zip(raw, route_batch):
+                if route["processor_target"] != route["target_lang"]:
+                    # Do not apply another language's postprocessor silently.
+                    predicted.append(text)
+                else:
+                    predicted.extend(processor.postprocess_batch(
+                        [text], lang=route["target_lang"]))
+    output = _write_predictions(rows, predicted, output)
+    write_json(str(output) + ".manifest.json", {
+        "model": str(model_id), "strategy": strategy, "proxy_src": proxy_src,
+        "proxy_tgt": proxy_tgt, "n": len(rows), "input_sha256": file_hash(dev_path),
+        "output_sha256": file_hash(output),
+        "warning": "Proxy-target raw output bypasses target postprocessing and needs expert review."})
+    return output
