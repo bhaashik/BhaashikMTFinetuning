@@ -3,10 +3,10 @@
 Each UTF-8 JSONL row is one parallel sentence:
 
 ```json
-{"id":"corpus-doc17-003","source":"...","target":"...","document_id":"corpus-doc17","domain":"news","provenance":"corpus@revision","license":"SPDX-or-license-URL"}
+{"id":"corpus-doc17-003","source":"...","target":"...","source_lang":"bra_Deva","target_lang":"hin_Deva","document_id":"corpus-doc17","domain":"news","provenance":"corpus@revision","license":"SPDX-or-license-URL"}
 ```
 
-Required: nonempty string `id`, `source`, `target`. Predictions add `prediction` (empty outputs are retained and scored). Domain/document IDs are optional for loading, but research releases should include them, along with provenance and license. One language pair and direction per file; reverse by swapping source/target and updating config. Language tags belong in config, not sentence text. Never conflate Magahi with Hindi or Bhojpuri.
+Required: nonempty string `id`, `source`, `target`. For multilingual or extended-language work also supply **both** `source_lang` and `target_lang` on each JSONL row (e.g. `bra_Deva` and `hin_Deva`). The pair must be complete; incomplete or invalid tags are rejected. Legacy single-direction corpora may omit both and use explicit notebook defaults. Predictions add `prediction` (empty outputs are retained and scored). Domain/document IDs are optional for loading, but research releases should include them, along with provenance and license. Files may contain multiple language directions if **each row is explicitly tagged**. Reverse by swapping source/target, swapping both language fields, and documenting that operation. The original text stays unchanged; model-specific prefixes are added during tokenization. See [multilingual adaptation](multilingual-adaptation.md). Language tags belong in config, not sentence text. Never conflate Magahi with Hindi or Bhojpuri.
 
 Store private/local data under ignored `data/local/`. The tiny examples are original illustrative fixtures, not a benchmark or a claim of native-speaker gold quality. Have language experts validate all real data.
 
