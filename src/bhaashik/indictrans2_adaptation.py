@@ -22,12 +22,12 @@ def processing_pair(src, tgt, *, strategy, proxy_src=None, proxy_tgt=None):
         if src not in INDICTRANS2_LANGS or tgt not in INDICTRANS2_LANGS:
             raise ValueError(f"IndicTrans2 does not natively support {src}->{tgt}")
         return src, tgt
+    if ((src not in INDICTRANS2_LANGS and proxy_src is None) or
+            (tgt not in INDICTRANS2_LANGS and proxy_tgt is None)):
+        raise ValueError("Explicit proxy_src/proxy_tgt is required for unsupported language tags")
     ps, pt = proxy_src or src, proxy_tgt or tgt
     if ps not in INDICTRANS2_LANGS or pt not in INDICTRANS2_LANGS:
         raise ValueError("Proxy processing languages must be native IndicTrans2 tags")
-    if (src not in INDICTRANS2_LANGS and proxy_src is None or
-            tgt not in INDICTRANS2_LANGS and proxy_tgt is None):
-        raise ValueError("Explicit proxy_src/proxy_tgt is required for unsupported language tags")
     return ps, pt
 
 
