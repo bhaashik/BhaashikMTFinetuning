@@ -249,6 +249,39 @@ def plot_review(report_dir):
         fig.savefig(path, dpi=160)
         plt.close(fig)
         outputs.append(path)
+        length_csv = report_dir / "sentence_lengths.csv"
+        if length_csv.exists():
+            with length_csv.open(encoding="utf-8", newline="") as handle:
+                sentence_rows = list(csv.DictReader(handle))
+            fig, ax = plt.subplots(figsize=(7, 4))
+            for label in names:
+                lengths = [float(r["source_tokens"]) for r in sentence_rows if r["split"] == label]
+                if lengths:
+                    ax.hist(lengths, bins=min(30, max(3, int(len(lengths)**.5))),
+                            histtype="step", linewidth=2, label=label)
+            ax.set(xlabel="Source sentence length (words)", ylabel="Number of pairs",
+                   title="Source length distributions")
+            ax.legend()
+            fig.tight_layout()
+            path = report_dir / "source_length_histogram.png"
+            fig.savefig(path, dpi=160)
+            plt.close(fig)
+            outputs.append(path)
+            fig, ax = plt.subplots(figsize=(7, 4))
+            for label in names:
+                ratios = [float(r["token_ratio"]) for r in sentence_rows if r["split"] == label]
+                if ratios:
+                    ax.hist([min(r, 5.0) for r in ratios],
+                            bins=min(30, max(3, int(len(ratios)**.5))),
+                            histtype="step", linewidth=2, label=label)
+            ax.set(xlabel="Target/source word ratio (clipped at 5)",
+                   ylabel="Number of pairs", title="Parallel-length ratio distributions")
+            ax.legend()
+            fig.tight_layout()
+            path = report_dir / "length_ratio_histogram.png"
+            fig.savefig(path, dpi=160)
+            plt.close(fig)
+            outputs.append(path)
         fig, ax = plt.subplots(figsize=(7, 4))
         x = list(range(len(names)))
         ax.bar([i-.18 for i in x],
@@ -262,6 +295,21 @@ def plot_review(report_dir):
         ax.legend()
         fig.tight_layout()
         path = report_dir / "length_summary.png"
+        fig.savefig(path, dpi=160)
+        plt.close(fig)
+        outputs.append(path)
+        fig, ax = plt.subplots(figsize=(7, 4))
+        scripts = ("Devanagari", "Latin", "other_letters")
+        offsets = [0] * len(names)
+        for script in scripts:
+            values = [report["splits"][name]["script_letters"]["source"].get(script, 0)
+                      for name in names]
+            ax.bar(names, values, bottom=offsets, label=script)
+            offsets = [left + amount for left, amount in zip(offsets, values)]
+        ax.set(ylabel="Source-script letter count", title="Source scripts by split")
+        ax.legend()
+        fig.tight_layout()
+        path = report_dir / "script_distribution.png"
         fig.savefig(path, dpi=160)
         plt.close(fig)
         outputs.append(path)
