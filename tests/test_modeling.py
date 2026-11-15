@@ -101,19 +101,16 @@ def test_multilingual_row_routes_train_and_generate(tiny_model, tmp_path):
     from pathlib import Path
     from bhaashik.data import read_jsonl
     original_root = Path(__file__).resolve().parents[1]
-    original_rows = read_jsonl(original_root / "data/examples/train.jsonl")
-    tagged = [
-        {**original_rows[0], "source_lang": "bho_Deva", "target_lang": "hin_Deva"},
-        {**original_rows[1], "source_lang": "mai_Deva", "target_lang": "hin_Deva"},
-    ]
     train_path = tmp_path / "tagged-train.jsonl"
     dev_path = tmp_path / "tagged-dev.jsonl"
     test_path = tmp_path / "tagged-test.jsonl"
-    for path, suffix in ((train_path, "-tr"), (dev_path, "-dv"), (test_path, "-te")):
+    for path, split in ((train_path, "train"), (dev_path, "dev"), (test_path, "test")):
+        originals = read_jsonl(original_root / f"data/examples/{split}.jsonl")
         with path.open("w", encoding="utf-8") as handle:
-            for row in tagged:
-                handle.write(json.dumps({**row, "id": row["id"] + suffix},
-                                        ensure_ascii=False) + "\n")
+            for index, row in enumerate(originals):
+                tagged = {**row, "source_lang": "bho_Deva" if index == 0 else "mai_Deva",
+                          "target_lang": "hin_Deva"}
+                handle.write(json.dumps(tagged, ensure_ascii=False) + "\n")
     cfg = {
         "model": str(tiny_model), "src_lang": "bho_Deva",
         "tgt_lang": "hin_Deva", "train_file": str(train_path),
