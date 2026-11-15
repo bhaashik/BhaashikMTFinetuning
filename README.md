@@ -37,6 +37,20 @@ bhaashik errors --input runs/bho-hin/predictions.jsonl --output runs/bho-hin/ann
 
 If an older Colab notebook tries to compile SentencePiece on Python 3.13, refresh the checkout and use the updated setup cell. Do not use a catch-all `sudo apt-get` fallback. See [Python 3.13 troubleshooting](docs/colab.md#python-313-and-the-ver-02-installation-failure).
 
+## Pretraining review and additional languages
+
+The [pretraining evaluation guide](docs/pretraining-review.md) and original
+[NLLB notebook](notebooks/01_nllb_research.ipynb) now support corpus diagnostics,
+visualizations, a held-out **development** model comparison, and explicit approval
+before real-data training. The scope covers Bhojpuri, Maithili, Magahi,
+**Awadhi, Braj, Nepali and Marwari**. Native checkpoint support is
+model-specific, and not all seven have NLLB or IndicTrans2 tokens. Optional
+IndicTrans2 and BhashaVerse/OneNMT development comparators require their
+upstream inference dependencies and are disabled by default; BhashaVerse must
+use its custom fairseq dictionary/SentencePiece ID mapping. The test set is
+held out until after model training, and review artifacts are included in the
+current-run ZIP.
+
 ## Model strategy
 
 | Model | Bhojpuri | Maithili | Magahi | Role |
