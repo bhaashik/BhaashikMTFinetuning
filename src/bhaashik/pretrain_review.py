@@ -218,10 +218,16 @@ def plot_review(report_dir):
         plt.close(fig)
         outputs.append(path)
         fig, ax = plt.subplots(figsize=(7, 4))
-        ax.boxplot([[report["splits"][name]["source_words"]["median"],
-                     report["splits"][name]["target_words"]["median"]] for name in names],
-                   tick_labels=names)
+        x = list(range(len(names)))
+        ax.bar([i-.18 for i in x],
+               [report["splits"][name]["source_words"]["median"] for name in names],
+               width=.36, label="Source")
+        ax.bar([i+.18 for i in x],
+               [report["splits"][name]["target_words"]["median"] for name in names],
+               width=.36, label="Target")
+        ax.set_xticks(x, names)
         ax.set(ylabel="Median sentence length (words)", title="Source / target median lengths per split")
+        ax.legend()
         fig.tight_layout()
         path = report_dir / "length_summary.png"
         fig.savefig(path, dpi=160)
