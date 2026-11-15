@@ -37,6 +37,17 @@ bhaashik errors --input runs/bho-hin/predictions.jsonl --output runs/bho-hin/ann
 
 If an older Colab notebook tries to compile SentencePiece on Python 3.13, refresh the checkout and use the updated setup cell. Do not use a catch-all `sudo apt-get` fallback. See [Python 3.13 troubleshooting](docs/colab.md#python-313-and-the-ver-02-installation-failure).
 
+## Aligned text-file conversion
+
+For corpora stored as two parallel `.txt` files (source and target, one
+sentence per matching line), the NLLB, IndicTrans2 and BhashaVerse notebooks
+now have `CONVERT_ALIGNED_TEXT=True` with configurable source/target
+paths. The converter writes language-tagged JSONL and then uses the existing
+seeded splitter. Input text can live in a Kaggle dataset mounted under
+`/kaggle/input/`; outputs stay in `/kaggle/working/`. Blank or mismatched
+lines are rejected even when full `VALIDATE_DATA` is off. See
+[the data guide](docs/data.md#conversion-from-two-aligned-plain-text-files).
+
 ## Optional one-file corpus preparation
 
 The three model notebooks now accept a single parallel JSONL file per pair
