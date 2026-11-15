@@ -37,6 +37,35 @@ cross-model comparison checks that sentence IDs, text and language fields
 match exactly. A method that uses proxy tags must record the proxies and
 language-conditioning strategy in its manifest.
 
+## One-file-per-language-pair option and validation switch
+
+All three model notebooks offer these controls in their data-preparation section:
+
+```python
+SPLIT_FROM_SINGLE_FILE = True
+SINGLE_FILE = ROOT / "data" / "local" / PAIR / "parallel.jsonl"
+SPLIT_SEED = 42
+SPLIT_RATIOS = (0.80, 0.10, 0.10)  # train/dev/test
+GROUP_BY_DOCUMENT = True
+VALIDATE_DATA = False  # quick setup; True before research training
+```
+
+The shared `split_parallel_jsonl` writes `train.jsonl`,
+`dev.jsonl`, `test.jsonl` plus a JSON manifest in a new
+seed-and-ratios-specific folder. It preserves original source and target text,
+language tags, stable IDs and metadata. Records with the same document ID
+or exact normalized source stay together, so the actual allocation may not
+equal the requested ratios. It refuses fewer than three independent groups
+or silent overwrites. Do **not** generate a different split for each model
+when comparing them: reuse exactly the same output paths and manifest.
+
+`VALIDATE_DATA=False` skips the more expensive corpus diagnostics/plots and
+the splitter's optional audit for a quick initial run; required JSONL checks
+are not disabled. Set it to `True` for proper data review. Model trainers
+still conduct train/dev audits and development-set loss validation. A
+short `max_steps` pilot can verify model mechanics but gives no scientific
+quality claim. See the [data guide](data.md).
+
 ## Choose the appropriate notebook
 
 | Notebook | Purpose | Language tagging |
