@@ -177,7 +177,7 @@ def compare_dev(reference_path, predictions_by_model, output_dir):
         ordered = []
         for row in gold:
             candidate = actual[row["id"]]
-            for field in ("source", "target", "document_id", "domain"):
+            for field in ("source", "target", "document_id", "domain", "source_lang", "target_lang"):
                 if candidate.get(field) != row.get(field):
                     raise ValueError(f"{model_name}: {field} differs on {row['id']}")
             ordered.append(candidate)
