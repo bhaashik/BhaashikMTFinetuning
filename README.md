@@ -37,6 +37,17 @@ bhaashik errors --input runs/bho-hin/predictions.jsonl --output runs/bho-hin/ann
 
 If an older Colab notebook tries to compile SentencePiece on Python 3.13, refresh the checkout and use the updated setup cell. Do not use a catch-all `sudo apt-get` fallback. See [Python 3.13 troubleshooting](docs/colab.md#python-313-and-the-ver-02-installation-failure).
 
+## Optional one-file corpus preparation
+
+The three model notebooks now accept a single parallel JSONL file per pair
+via `SPLIT_FROM_SINGLE_FILE=True`. Use `SPLIT_SEED` and
+`SPLIT_RATIOS=(0.8,0.1,0.1)` to generate reproducible document/source-grouped
+train/dev/test splits without modifying the input. For initial tests,
+`VALIDATE_DATA=False` skips full corpus diagnostics and figures; enable it
+before research training. Model trainers still perform train/dev checks. The
+[splitter contract and example](docs/data.md#optional-single-file-splitting)
+describe manifests, grouping and reuse.
+
 ## Explicit multilingual adaptation
 
 The [language-tag and three-model adaptation guide](docs/multilingual-adaptation.md)
