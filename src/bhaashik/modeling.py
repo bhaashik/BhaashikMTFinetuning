@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from importlib.metadata import version
 from .data import audit, read_jsonl, file_hash, write_json
+from .multilingual import resolve_languages, condition_sentence
 
 
 def require_language(tokenizer, language):
@@ -91,11 +92,29 @@ def train(config_path):
     model, tokenizer = load(config["model"], config.get("revision"))
     if mode == "lora" and Path(config["model"], "bhaashik_extension.json").exists():
         raise ValueError("Extended language embeddings require mode=full; LoRA freezes them")
-    tokenizer.src_lang, tokenizer.tgt_lang = config["src_lang"], config["tgt_lang"]
-    require_language(tokenizer, tokenizer.src_lang)
-    target_id = require_language(tokenizer, tokenizer.tgt_lang)
+    strategy = config.get("conditioning", "native")
+    if strategy not in ("native", "text_prefix", "dedicated_token"):
+        raise ValueError("conditioning must be native, text_prefix or dedicated_token")
+    # A text-prefix ablation may use an explicit supported proxy; it is NOT a
+    # native-language checkpoint. Native/dedicated use the actual registered ID.
+    def processing_route(src, tgt):
+        ps = config.get("proxy_source_lang", src) if strategy == "text_prefix" else src
+        pt = config.get("proxy_target_lang", tgt) if strategy == "text_prefix" else tgt
+        if strategy == "text_prefix":
+            if ps != src and "proxy_source_lang" not in config or (
+                    pt != tgt and "proxy_target_lang" not in config):
+                raise ValueError("Non-native tags require explicit donor tags")
+        require_language(tokenizer, ps)
+        require_language(tokenizer, pt)
+        return ps, pt
+    training_rows = read_jsonl(config["train_file"])
+    dev_rows = read_jsonl(config["dev_file"])
+    training_routes = {resolve_languages(r, config["src_lang"], config["tgt_lang"])
+                       for r in training_rows + dev_rows}
+    resolved_routes = {r: processing_route(*r) for r in training_routes}
+    tokenizer.src_lang, tokenizer.tgt_lang = resolved_routes[next(iter(sorted(resolved_routes)))]
     model.config.forced_bos_token_id = None
-    model.generation_config.forced_bos_token_id = target_id
+    model.generation_config.forced_bos_token_id = None
     model.config.use_cache = False
     if mode == "lora":
         from peft import LoraConfig, TaskType, get_peft_model
@@ -104,7 +123,20 @@ def train(config_path):
                     target_modules=["q_proj", "v_proj"]))
     max_length = config.get("max_length", 128)
     def encode(batch):
-        return tokenizer(batch["source"], text_target=batch["target"], max_length=max_length, truncation=True)
+        records = {"input_ids": [], "attention_mask": [], "labels": []}
+        for idx, (source, target) in enumerate(zip(batch["source"], batch["target"])):
+            row = {"source": source, "target": target}
+            for key in ("source_lang", "target_lang"):
+                if key in batch:
+                    row[key] = batch[key][idx]
+            src, tgt = resolve_languages(row, config["src_lang"], config["tgt_lang"])
+            tokenizer.src_lang, tokenizer.tgt_lang = resolved_routes[(src, tgt)]
+            source_text = condition_sentence(source, src, tgt, "nllb", strategy)
+            encoded = tokenizer(source_text, text_target=target,
+                                max_length=max_length, truncation=True)
+            for key in records:
+                records[key].append(encoded[key])
+        return records
     def dataset(path):
         ds = Dataset.from_list(read_jsonl(path))
         return ds.map(encode, batched=True, remove_columns=ds.column_names)
@@ -151,6 +183,9 @@ def train(config_path):
         "packages": {p: version(p) for p in ("torch", "transformers", "peft", "datasets", "accelerate", "sentencepiece", "tokenizers")},
         "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
         "resolved_model_revision": getattr(model.config, "_commit_hash", None),
+        "conditioning": strategy, "resolved_routes": {
+            f"{src}->{tgt}": {"source": ps, "target": pt}
+            for (src, tgt), (ps, pt) in sorted(resolved_routes.items())},
         "trainable_parameters": trainable_parameters,
         "total_parameters": sum(p.numel() for p in model.parameters())})
     (output / "README.md").write_text(
@@ -160,35 +195,60 @@ def train(config_path):
     return dev_metrics
 
 
-def translate(model_id, src, tgt, input_path, output, revision=None, batch_size=4, max_length=256, max_new_tokens=256, beams=4):
+def translate(model_id, src, tgt, input_path, output, revision=None, batch_size=4,
+              max_length=256, max_new_tokens=256, beams=4,
+              conditioning="native", proxy_source_lang=None, proxy_target_lang=None):
+    """Run direction-aware NLLB translation; preserve original row metadata."""
     import torch
+    from collections import defaultdict
     if min(batch_size, max_length, max_new_tokens, beams) < 1:
-        raise ValueError("batch size, lengths and beams must be positive")
+        raise ValueError("Batch size, lengths and beams must be positive")
+    if conditioning not in ("native", "text_prefix", "dedicated_token"):
+        raise ValueError("Unknown conditioning strategy")
     rows = read_jsonl(input_path)
     model, tokenizer = load(model_id, revision)
-    tokenizer.src_lang, tokenizer.tgt_lang = src, tgt
-    require_language(tokenizer, src)
-    target_id = require_language(tokenizer, tgt)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device).eval()
-    predictions, truncated = [], 0
+    predictions = [None] * len(rows)
+    groups = defaultdict(list)
+    for i, row in enumerate(rows):
+        actual_src, actual_tgt = resolve_languages(row, src, tgt)
+        ps = (proxy_source_lang or actual_src) if conditioning == "text_prefix" else actual_src
+        pt = (proxy_target_lang or actual_tgt) if conditioning == "text_prefix" else actual_tgt
+        require_language(tokenizer, ps)
+        require_language(tokenizer, pt)
+        groups[(actual_src, actual_tgt, ps, pt)].append(i)
+    truncated = 0
     started = time.time()
     with torch.inference_mode():
-        for i in range(0, len(rows), batch_size):
-            batch = [r["source"] for r in rows[i:i+batch_size]]
-            lengths = tokenizer(batch, truncation=False)["input_ids"]
-            truncated += sum(len(ids) > max_length for ids in lengths)
-            encoded = tokenizer(batch, return_tensors="pt", padding=True, truncation=True, max_length=max_length).to(device)
-            tokens = model.generate(**encoded, forced_bos_token_id=target_id,
-                                    max_new_tokens=max_new_tokens, num_beams=beams)
-            predictions.extend(tokenizer.batch_decode(tokens, skip_special_tokens=True))
+        for (actual_src, actual_tgt, ps, pt), indices in groups.items():
+            tokenizer.src_lang, tokenizer.tgt_lang = ps, pt
+            target_id = require_language(tokenizer, pt)
+            for k in range(0, len(indices), batch_size):
+                batch_indices = indices[k:k+batch_size]
+                batch = [condition_sentence(rows[i]["source"], actual_src, actual_tgt,
+                                            "nllb", conditioning) for i in batch_indices]
+                lengths = tokenizer(batch, truncation=False)["input_ids"]
+                truncated += sum(len(ids) > max_length for ids in lengths)
+                encoded = tokenizer(batch, return_tensors="pt", padding=True,
+                                    truncation=True, max_length=max_length).to(device)
+                tokens = model.generate(
+                    **encoded, forced_bos_token_id=target_id,
+                    max_new_tokens=max_new_tokens, num_beams=beams)
+                for i, text in zip(batch_indices, tokenizer.batch_decode(
+                        tokens, skip_special_tokens=True)):
+                    predictions[i] = text
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8") as handle:
         for row, prediction in zip(rows, predictions):
             handle.write(json.dumps({**row, "prediction": prediction}, ensure_ascii=False) + "\n")
-    write_json(str(output) + ".manifest.json", {"model": str(model_id), "revision": revision,
-        "resolved_revision": getattr(model.config, "_commit_hash", None), "src_lang": src, "tgt_lang": tgt,
-        "n": len(rows), "truncated_sources": truncated, "input_sha256": file_hash(input_path),
-        "output_sha256": file_hash(output), "num_beams": beams, "max_length": max_length,
-        "max_new_tokens": max_new_tokens, "seconds": time.time()-started, "device": device})
+    write_json(str(output) + ".manifest.json", {"model": str(model_id),
+        "revision": revision, "resolved_revision": getattr(model.config, "_commit_hash", None),
+        "src_lang": src, "tgt_lang": tgt, "conditioning": conditioning,
+        "proxy_source_lang": proxy_source_lang, "proxy_target_lang": proxy_target_lang,
+        "n": len(rows), "directions": len(groups), "truncated_sources": truncated,
+        "input_sha256": file_hash(input_path), "output_sha256": file_hash(output),
+        "num_beams": beams, "max_length": max_length,
+        "max_new_tokens": max_new_tokens, "seconds": time.time()-started,
+        "device": device})
