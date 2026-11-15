@@ -1,6 +1,6 @@
 # Bhaashik · Hindi-belt neural machine translation
 
-A research toolkit for adapting encoder–decoder MT models to **Bhojpuri, Maithili, and Magahi**, with Hindi and English as bridge languages. Designed for Colab/Kaggle GPUs and standard Hugging Face checkpoints. This is an experiment framework, **not a claim of new state-of-the-art results**.
+A research toolkit for adapting encoder–decoder MT models, primarily to **Bhojpuri, Maithili, and Magahi**, with exploratory corpus review and model-comparison coverage for **Awadhi, Braj, Nepali, and Marwari**, using Hindi and English as bridge languages. Designed for Colab/Kaggle GPUs and standard Hugging Face checkpoints. This is an experiment framework, **not a claim of new state-of-the-art results**.
 
 ## Start
 
