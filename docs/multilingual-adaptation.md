@@ -37,6 +37,30 @@ cross-model comparison checks that sentence IDs, text and language fields
 match exactly. A method that uses proxy tags must record the proxies and
 language-conditioning strategy in its manifest.
 
+## Two aligned plain-text files per language pair
+
+All three model notebooks also accept source/target sentence files before
+splitting. In the existing data-preparation cell configure:
+
+```python
+CONVERT_ALIGNED_TEXT = True
+SOURCE_TEXT_FILE = Path("/kaggle/input/your-data/bho.txt")
+TARGET_TEXT_FILE = Path("/kaggle/input/your-data/hin.txt")
+CONVERTED_JSONL = ROOT / "data" / "local" / PAIR / "parallel.jsonl"
+SPLIT_SEED = 42
+SPLIT_RATIOS = (0.80, 0.10, 0.10)
+VALIDATE_DATA = False
+```
+
+The converter sets `SPLIT_FROM_SINGLE_FILE=True` automatically, adds
+`source_lang`/`target_lang`, and produces a non-destructive, hash-tracked
+intermediate JSONL. It **rejects** differing line counts, single-side
+blanks and blank pairs even with extended validation off; alignment is never
+repaired by guessing. For usage outside notebooks, call
+`bhaashik.text_conversion.convert_aligned_text_files`. Use
+`VALIDATE_DATA=True` before substantive research training. See
+[data conversion details](data.md#conversion-from-two-aligned-plain-text-files).
+
 ## One-file-per-language-pair option and validation switch
 
 All three model notebooks offer these controls in their data-preparation section:
