@@ -183,3 +183,25 @@ def test_tiny_bhashaverse_full_train_roundtrip(tmp_path):
         run, dev, tmp_path / "predictions.jsonl", device="cpu",
         max_new_tokens=3)
     assert len(read_jsonl(outputs, predictions=True)) == 2
+
+
+def test_direction_specific_dev_and_test_scores(tmp_path):
+    from bhaashik.pretrain_review import compare_dev
+    from bhaashik.evaluation import evaluate
+    rows = [
+        {"id": "b1", "source": "ब्रज", "target": "ब्रज", "prediction": "ब्रज",
+         "source_lang": "bra_Deva", "target_lang": "hin_Deva"},
+        {"id": "m1", "source": "मैथिली", "target": "मैथिली", "prediction": "मैथिली",
+         "source_lang": "mai_Deva", "target_lang": "hin_Deva"},
+    ]
+    gold = _write(tmp_path / "dev.jsonl",
+                  [{key: val for key, val in row.items() if key != "prediction"}
+                   for row in rows])
+    predictions = _write(tmp_path / "pred.jsonl", rows)
+    reviewed = compare_dev(gold, {"model": predictions}, tmp_path / "review")
+    assert set(reviewed["models"][0]["directions"]) == {
+        "bra_Deva->hin_Deva", "mai_Deva->hin_Deva"}
+    assert (tmp_path / "review" / "dev_direction_comparison.csv").exists()
+    tested = evaluate(predictions, tmp_path / "final.json")
+    assert set(tested["directions"]) == {
+        "bra_Deva->hin_Deva", "mai_Deva->hin_Deva"}
