@@ -8,6 +8,42 @@ Each UTF-8 JSONL row is one parallel sentence:
 
 Required: nonempty string `id`, `source`, `target`. For multilingual or extended-language work also supply **both** `source_lang` and `target_lang` on each JSONL row (e.g. `bra_Deva` and `hin_Deva`). The pair must be complete; incomplete or invalid tags are rejected. Legacy single-direction corpora may omit both and use explicit notebook defaults. Predictions add `prediction` (empty outputs are retained and scored). Domain/document IDs are optional for loading, but research releases should include them, along with provenance and license. Files may contain multiple language directions if **each row is explicitly tagged**. Reverse by swapping source/target, swapping both language fields, and documenting that operation. The original text stays unchanged; model-specific prefixes are added during tokenization. See [multilingual adaptation](multilingual-adaptation.md). Language tags belong in config, not sentence text. Never conflate Magahi with Hindi or Bhojpuri.
 
+## Conversion from two aligned plain-text files
+
+If your source and translation are stored in **two** UTF-8 files, one sentence
+per physical line, select `CONVERT_ALIGNED_TEXT=True` in any of the three
+model notebooks. Point the variables at your actual input files (including
+Kaggle-attached datasets in `/kaggle/input/...`). The converter preserves
+both original files and creates one tagged JSONL for seeded splitting.
+
+```python
+from bhaashik.text_conversion import convert_aligned_text_files
+
+result = convert_aligned_text_files(
+    "/kaggle/input/your-dataset/bho.txt",
+    "/kaggle/input/your-dataset/hin.txt",
+    "/kaggle/working/BhaashikMTFinetuning/data/local/bho-hin/parallel.jsonl",
+    source_lang="bho_Deva", target_lang="hin_Deva",
+)
+print(result["sentence_pairs"])
+```
+
+Strict checks **always run**, including when `VALIDATE_DATA=False`:
+both inputs must exist, the number of physical lines must match, every line
+must contain a nonempty sentence in **both files**, and language tags must
+be syntactically valid. It does not silently skip blank lines or guess which
+sentences belong together. Line numbers produce stable IDs, and optional
+`domain`, `provenance` and `license` metadata are accepted.
+SHA-256 input/output hashes and settings are recorded in
+`parallel.jsonl.manifest.json`; unchanged outputs are reused, while changed
+inputs or corrupt output trigger an error. The converter cannot confirm that
+line-paired sentences are correct translations, or infer document boundaries.
+
+The new JSONL then goes through `split_parallel_jsonl` with your chosen
+`SPLIT_SEED` and ratios. Keep the **same split and manifest for all models**.
+Full corpus diagnostics remain optional for initial smoke tests but should
+be enabled before real research training.
+
 ## Optional single-file splitting
 
 A language pair may arrive as **one** UTF-8 `parallel.jsonl` instead of
