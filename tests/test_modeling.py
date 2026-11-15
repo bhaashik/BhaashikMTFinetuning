@@ -95,3 +95,39 @@ def test_extended_tag_training_updates_embedding(tiny_model,tmp_path):
     model=AutoModelForSeq2SeqLM.from_pretrained(tmp_path/'trained')
     assert not torch.equal(before,model.get_input_embeddings().weight[tag])
     assert (tmp_path/'trained/bhaashik_extension.json').exists()
+
+
+def test_multilingual_row_routes_train_and_generate(tiny_model, tmp_path):
+    from pathlib import Path
+    from bhaashik.data import read_jsonl
+    original_root = Path(__file__).resolve().parents[1]
+    original_rows = read_jsonl(original_root / "data/examples/train.jsonl")
+    tagged = [
+        {**original_rows[0], "source_lang": "bho_Deva", "target_lang": "hin_Deva"},
+        {**original_rows[1], "source_lang": "mai_Deva", "target_lang": "hin_Deva"},
+    ]
+    train_path = tmp_path / "tagged-train.jsonl"
+    dev_path = tmp_path / "tagged-dev.jsonl"
+    test_path = tmp_path / "tagged-test.jsonl"
+    for path, suffix in ((train_path, "-tr"), (dev_path, "-dv"), (test_path, "-te")):
+        with path.open("w", encoding="utf-8") as handle:
+            for row in tagged:
+                handle.write(json.dumps({**row, "id": row["id"] + suffix},
+                                        ensure_ascii=False) + "\n")
+    cfg = {
+        "model": str(tiny_model), "src_lang": "bho_Deva",
+        "tgt_lang": "hin_Deva", "train_file": str(train_path),
+        "dev_file": str(dev_path), "output_dir": str(tmp_path / "output"),
+        "conditioning": "native", "mode": "full", "max_steps": 1,
+        "max_length": 32, "precision": "fp32", "batch_size": 1,
+        "gradient_accumulation_steps": 1, "gradient_checkpointing": False,
+    }
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(cfg))
+    train(path)
+    out = tmp_path / "predictions.jsonl"
+    translate(tmp_path / "output", "bho_Deva", "hin_Deva", test_path, out,
+              max_length=32, max_new_tokens=3, beams=1)
+    predictions = read_jsonl(out, predictions=True)
+    assert {r["source_lang"] for r in predictions} == {"bho_Deva", "mai_Deva"}
+    assert len(predictions) == 2
