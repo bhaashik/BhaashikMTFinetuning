@@ -14,7 +14,7 @@ def validate_python(current=None):
     current = tuple((current or sys.version_info)[:2])
     if not (3, 10) <= current < (3, 14):
         raise RuntimeError(
-            f'Python {current[0]}.{current[1]} is outside the supported 3.10-3.13 range. '
+            f'Python {current[0]}.{current[1]} is outside the supported 3.10–3.13 range. '
             'Choose a compatible notebook runtime/kernel; installing compiler tools is not the fix.')
     return current
 
@@ -105,8 +105,8 @@ def setup(root, extras='train', require_cuda=False):
                 subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', 'torchao'],
                                cwd=root, check=True)
     # Do not replace the runtime's Torch/CUDA installation proactively.
-    # Do not constrain Protobuf here: Kaggle's TensorFlow and cloud SDKs may
-    # require Protobuf 6+, and this project's PyTorch code does not need a pin.
+    # Project extras require Protobuf 6+, compatible with Kaggle's newer
+    # TensorFlow/cloud SDK runtime and SentencePiece protobuf helpers.
     subprocess.run([sys.executable, '-m', 'pip', 'install',
                     '--only-binary=sentencepiece,tokenizers', '-e', spec],
                    cwd=root, check=True)
