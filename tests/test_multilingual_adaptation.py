@@ -121,3 +121,65 @@ def test_bhashaverse_prefix_collision_detection():
                  "source_lang": "hin_Deva", "target_lang": "eng_Latn"})
     with pytest.raises(AssetError, match="collision"):
         validate_prefix_routes(_Codec(), rows)
+
+
+def test_tiny_bhashaverse_full_train_roundtrip(tmp_path):
+    """Synthetic HF MBart smoke test, NOT published BhashaVerse parity."""
+    import sentencepiece as spm
+    import torch
+    from transformers import MBartConfig, MBartForConditionalGeneration
+    from bhaashik.data import write_json
+    from bhaashik.bhashaverse_adaptation import train_bhashaverse, generate_bhashaverse_dev
+
+    torch.set_num_threads(1)
+    root = tmp_path / "assets"
+    root.mkdir()
+    corpus = tmp_path / "corpus.txt"
+    corpus.write_text(("###bra_Deva-to-hin_Deva### ब्रज हिन्दी दुनिया किसान पानी घर सुंदर\n") * 30,
+                      encoding="utf-8")
+    spm.SentencePieceTrainer.train(
+        input=str(corpus), model_prefix=str(root / "onemtv3b_spm"),
+        model_type="char", vocab_size=256, hard_vocab_limit=False,
+        bos_id=0, pad_id=1, eos_id=2, unk_id=3, minloglevel=2)
+    processor = spm.SentencePieceProcessor(model_file=str(root / "onemtv3b_spm.model"))
+    pieces = [processor.id_to_piece(i) for i in range(processor.get_piece_size())]
+    mapping = {piece: i for i, piece in enumerate(pieces)}
+    write_json(root / "fairseq_dict.json", {
+        "src": mapping, "tgt": mapping,
+        "special": {"bos": 0, "pad": 1, "eos": 2, "unk": 3}})
+    config = MBartConfig(
+        vocab_size=len(mapping)+8, d_model=8, encoder_layers=1,
+        decoder_layers=1, encoder_attention_heads=2, decoder_attention_heads=2,
+        encoder_ffn_dim=16, decoder_ffn_dim=16,
+        max_position_embeddings=128, bos_token_id=0, pad_token_id=1,
+        eos_token_id=2, decoder_start_token_id=2,
+        forced_eos_token_id=None, dropout=0, attention_dropout=0)
+    MBartForConditionalGeneration(config).save_pretrained(root, safe_serialization=True)
+
+    def tagged_row(idx, text, tgt):
+        return {"id": idx, "source_lang": "bra_Deva", "target_lang": "hin_Deva",
+                "source": text, "target": tgt, "document_id": idx}
+    train = _write(tmp_path / "train.jsonl", [
+        tagged_row("a", "ब्रज दुनिया", "हिन्दी दुनिया"),
+        tagged_row("b", "पानी घर", "सुंदर घर")])
+    dev = _write(tmp_path / "dev.jsonl", [
+        tagged_row("c", "सुंदर किसान", "किसान घर"),
+        tagged_row("d", "घर हिन्दी", "घर दुनिया")])
+    run = tmp_path / "adapted"
+    cfg = {"model_assets": str(root), "output_dir": str(run),
+           "train_file": str(train), "dev_file": str(dev),
+           "mode": "full", "strategy": "text_prefix",
+           "max_steps": 1, "batch_size": 1, "gradient_accumulation_steps": 1,
+           "max_length": 64, "precision": "fp32",
+           "gradient_checkpointing": False}
+    cfg_path = tmp_path / "configuration.json"
+    cfg_path.write_text(json.dumps(cfg))
+    result = train_bhashaverse(cfg_path)
+    assert "eval_loss" in result
+    assert (run / "fairseq_dict.json").exists()
+    assert (run / "onemtv3b_spm.model").exists()
+    assert (run / "run_manifest.json").exists()
+    outputs = generate_bhashaverse_dev(
+        run, dev, tmp_path / "predictions.jsonl", device="cpu",
+        max_new_tokens=3)
+    assert len(read_jsonl(outputs, predictions=True)) == 2
