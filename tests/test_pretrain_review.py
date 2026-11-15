@@ -95,7 +95,7 @@ def test_plot_review_if_matplotlib_available(splits, tmp_path):
     folder = tmp_path / "review"
     inspect_splits(splits, folder)
     figures = plot_review(folder)
-    assert len(figures) == 2
+    assert len(figures) == 5
     assert all(fig.stat().st_size > 0 for fig in figures)
 
 
