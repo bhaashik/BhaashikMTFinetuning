@@ -1,6 +1,7 @@
 """Kaggle/Colab setup with a lightweight CPU mode and PyTorch-only ML imports."""
 import argparse
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -83,6 +84,21 @@ def setup(root, extras='train', require_cuda=False):
     print('Install mode:', extras, '(TensorFlow/Flax disabled for this PyTorch project)', flush=True)
     print('Installing wheel-backed dependencies; original pip output follows.', flush=True)
     spec = '.' if extras == 'base' else f'.[{extras}]'
+    # An old, optional TorchAO installed by Kaggle can make newer PEFT refuse
+    # to construct LoRA adapters. This project does not use TorchAO; remove
+    # only the incompatible preinstalled versions, and only for training.
+    if extras in ('train', 'train,repairs'):
+        try:
+            torchao_version = version('torchao')
+        except PackageNotFoundError:
+            torchao_version = None
+        if torchao_version:
+            match = re.match(r"^(\\d+)\\.(\\d+)", torchao_version)
+            if match and tuple(map(int, match.groups())) < (0, 16):
+                print(f'Removing optional incompatible torchao {torchao_version} before PEFT setup',
+                      flush=True)
+                subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', 'torchao'],
+                               cwd=root, check=True)
     # Do not replace the runtime's Torch/CUDA installation proactively.
     # Do not constrain Protobuf here: Kaggle's TensorFlow and cloud SDKs may
     # require Protobuf 6+, and this project's PyTorch code does not need a pin.
