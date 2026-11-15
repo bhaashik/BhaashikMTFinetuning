@@ -1,7 +1,6 @@
 """Kaggle/Colab setup with a lightweight CPU mode and PyTorch-only ML imports."""
 import argparse
 from importlib.metadata import PackageNotFoundError, version
-import re
 import os
 from pathlib import Path
 import subprocess
@@ -93,8 +92,14 @@ def setup(root, extras='train', require_cuda=False):
         except PackageNotFoundError:
             torchao_version = None
         if torchao_version:
-            match = re.match(r"^(\\d+)\\.(\\d+)", torchao_version)
-            if match and tuple(map(int, match.groups())) < (0, 16):
+            # Version prefix only (e.g. 0.10.0+cu130); no optional
+            # version-parsing dependencies required in this installer.
+            fields = torchao_version.split('.')
+            try:
+                incompatible = (int(fields[0]), int(fields[1])) < (0, 16)
+            except (ValueError, IndexError):
+                incompatible = False
+            if incompatible:
                 print(f'Removing optional incompatible torchao {torchao_version} before PEFT setup',
                       flush=True)
                 subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', 'torchao'],
