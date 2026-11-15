@@ -4,12 +4,12 @@ from zipfile import ZipFile, ZIP_STORED
 
 
 def archive_experiment(root, run_dir, destination, baseline_dir=None,
-                       config_path=None, include_checkpoints=False):
+                       config_path=None, include_checkpoints=False, report_dir=None):
     """Save one run, its baseline, and its config in a quick ZIP_STORED archive.
 
     By default Trainer optimizer/checkpoint snapshots are excluded; the exported
     model, tokenizer and evaluation files under run_dir are retained. Set
-    include_checkpoints=True to preserve trainer state for exact resumption.
+    include_checkpoints=True to preserve trainer state for exact resumption.\n    Pass report_dir to include pre-training diagnostics and development comparisons.
     """
     root = Path(root).resolve()
 
@@ -30,6 +30,12 @@ def archive_experiment(root, run_dir, destination, baseline_dir=None,
     paths = [run]
     if baseline is not None and baseline != run and baseline.is_dir():
         paths.append(baseline)
+    reports = located(report_dir) if report_dir is not None else None
+    if reports is not None:
+        if not reports.is_dir():
+            raise FileNotFoundError(f"Review reports do not exist: {reports}")
+        if reports not in paths:
+            paths.append(reports)
     if config is not None and not config.is_file():
         raise FileNotFoundError(f"Training config does not exist: {config}")
 

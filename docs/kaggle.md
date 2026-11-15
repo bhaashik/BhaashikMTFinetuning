@@ -40,6 +40,26 @@ Set notebook `USE_EXAMPLE_DATA=False`, choose the matching language direction an
 
 If Internet is disabled, cloning, pip installation and Hub downloads will fail unless you have already attached complete compatible code/package/model artifacts. Enable supported Internet access or prepare an offline dataset deliberately; the project does not automatically assemble an offline wheelhouse.
 
+## Pretraining evaluation before finetuning
+
+For seven focus languages (Bhojpuri, Maithili, Magahi, Awadhi, Braj, Nepali,
+Marwari), run the original NLLB notebook's data review section before any real
+training. It writes corpus leakage/length/script/provenance diagnostics and
+figures to `runs/{PAIR}-pretrain-review/`. A frozen, reproducible **dev**
+sample supports untouched NLLB inference and optional IndicTrans2 or
+BhashaVerse comparisons, with BLEU/chrF++ and a side-by-side review CSV. The
+comparison refuses differing prediction IDs and references. External baseline
+outputs may come from a different compatible Kaggle/Colab session.
+Unsupported native language tags are blocked rather than silently relabelled;
+the model card, not only the research paper, determines confirmed BhashaVerse
+checkpoint support.
+
+With `USE_EXAMPLE_DATA=False`, finetuning is initially blocked until the
+`APPROVE_REAL_TRAINING` flag is set after diagnostics and baseline review.
+The unchanged test set is translated **after** training for final evaluation,
+not during model selection. Reports are included in the optimized final ZIP.
+See [pretraining review](pretraining-review.md) for setup, coverage and limits.
+
 ## Training and storage
 
 Begin with LoRA, batch 1, length 128, FP16 and gradient checkpointing. Free GPU hours, device choice and session length are not guaranteed. Stop after a short pilot if it does not fit or produces invalid outputs. Full finetuning and OneNMT CPU embedding repair may exceed available GPU/host memory.
