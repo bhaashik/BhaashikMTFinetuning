@@ -140,6 +140,16 @@ def inspect_splits(paths, output_dir, near_duplicate_limit=15):
         if len(subset) < 100:
             issues.append({"severity": "review", "check": "small_split",
                            "message": f"{name} contains only {len(subset)} sentences; scores will be unstable"})
+        if any(not row.get("license") for row in subset):
+            issues.append({"severity": "review", "check": "license_missing",
+                           "message": f"{name}: {sum(not row.get('license') for row in subset)} rows lack license metadata"})
+        if any(not row.get("provenance") for row in subset):
+            issues.append({"severity": "review", "check": "provenance_missing",
+                           "message": f"{name}: {sum(not row.get('provenance') for row in subset)} rows lack provenance"})
+        extremes = sum(v > 3 or v < 1/3 for v in ratios)
+        if extremes:
+            issues.append({"severity": "review", "check": "length_ratio_outlier",
+                           "message": f"{name}: {extremes} target/source token ratios outside [1/3, 3]"})
     report = {"schema_version": 1, "audit": core, "splits": splits, "issues": issues,
               "ready_for_training": not any(item["severity"] == "block" for item in issues),
               "note": "Ready means no detected structural blockers; it does not certify linguistic quality, licensing, or semantic split independence."}
@@ -184,8 +194,27 @@ def compare_dev(reference_path, predictions_by_model, output_dir):
                      "review_flags": dict(flag_counts)})
         flags.extend({"model": model_name, "flag": flag, "n": count}
                      for flag, count in flag_counts.items())
+    # Wide, human-readable alignment sheet for manual, ideally blind, review.
+    # This is a *development* report; do not substitute test material here.
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    sheet_rows = []
+    for source_row in gold:
+        view = {"id": source_row["id"], "source": source_row["source"],
+                "reference": source_row["target"],
+                "domain": source_row.get("domain", ""),
+                "document_id": source_row.get("document_id", "")}
+        for model_name, prediction_path in predictions_by_model.items():
+            model_predictions = {r["id"]: r["prediction"] for r in
+                                 read_jsonl(prediction_path, predictions=True)}
+            view[str(model_name)] = model_predictions[source_row["id"]]
+        sheet_rows.append(view)
+    with (output_dir / "dev_side_by_side.csv").open("w", newline="", encoding="utf-8") as handle:
+        fields = ["id", "source", "reference", "domain", "document_id"] + [
+            str(name) for name in predictions_by_model]
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(sheet_rows)
     report = {"schema_version": 1, "split": "dev", "reference_sha256": file_hash(reference_path),
               "n": len(gold), "models": rows,
               "note": "Scores are descriptive; use paired document bootstrap, seed repeats and blind human assessment for claims."}
