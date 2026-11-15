@@ -149,6 +149,4 @@ def test_non_destructive_and_input_conflict(tmp_path):
     with pytest.raises(ValueError, match="not contain"):
         split_parallel_jsonl(original, tmp_path)
     assert file_hash(original) == before
-    with pytest.raises(ValueError, match="not contain"):
-        split_parallel_jsonl(original, original.parent / "split", seed=8,
-                             ratios=(.8, .1, .1)) if False else split_parallel_jsonl(original, original.parent)
+    assert not (tmp_path / "train.jsonl").exists()
