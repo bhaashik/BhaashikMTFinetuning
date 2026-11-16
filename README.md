@@ -1,3 +1,19 @@
+## Four-stage corpus-quality evaluation (current default)
+
+The NLLB, IndicTrans2 and BhashaVerse notebooks now use **one editable
+`EXPERIMENT` settings cell**, with `stage="lowest_baseline"` as the
+default. This performs **full development and test inference** on the
+untouched model and saves predictions, BLEU/chrF++, SVG plots, review
+sheets, hashes and an independent ZIP—**no training required**.
+`low_baseline` finetunes the model and records per-epoch dev loss plus
+the same full-split outputs; `decoding_search` tunes only on dev;
+`language_extension` uses controlled tokenizer/embedding extensions.
+Each stage is archivable on its own, including incomplete runs.
+
+[Read the four-stage workflow](docs/four-stage-workflow.md),
+[notebook configuration guide](docs/experiment-guide.md) and
+[Kaggle/Colab paths and usage](docs/notebook-platforms.md).
+
 ## One-cell experiment configuration (native NLLB by default)
 
 The three model notebooks now have a **single editable settings cell near the
