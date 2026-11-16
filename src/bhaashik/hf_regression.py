@@ -24,7 +24,8 @@ def output_signals(source, prediction, token_ids, codec, max_new_tokens=None):
     }
 
 
-def generate_probes(assets, rows, *, device="cpu", precision="fp32", max_new_tokens=64, batch_size=1):
+def generate_probes(assets, rows, *, device="cpu", precision="fp32", max_new_tokens=64,
+                    batch_size=1, beams=1, length_penalty=1.0):
     import torch
     from transformers import GenerationConfig, MBartForConditionalGeneration, LogitsProcessor, LogitsProcessorList
     if device not in ("cpu", "cuda") or precision not in ("fp32", "fp16"):
@@ -33,7 +34,7 @@ def generate_probes(assets, rows, *, device="cpu", precision="fp32", max_new_tok
         raise AssetError("fp16 probes require CUDA")
     if device == "cuda" and not torch.cuda.is_available():
         raise AssetError("CUDA was requested but is unavailable")
-    if max_new_tokens < 1 or batch_size < 1:
+    if max_new_tokens < 1 or batch_size < 1 or beams < 1 or length_penalty <= 0:
         raise AssetError("max_new_tokens and batch_size must be positive")
     codec = FairseqCodec(assets)
     if codec.config.get("model_type") != "mbart":
@@ -61,7 +62,8 @@ def generate_probes(assets, rows, *, device="cpu", precision="fp32", max_new_tok
         decoder_start_token_id=codec.special["eos"], bos_token_id=codec.special["bos"],
         eos_token_id=codec.special["eos"], pad_token_id=codec.special["pad"],
         forced_bos_token_id=None, forced_eos_token_id=None,
-        do_sample=False, num_beams=1, num_return_sequences=1,
+        do_sample=False, num_beams=beams, length_penalty=length_penalty,
+        num_return_sequences=1,
         repetition_penalty=1.0, no_repeat_ngram_size=0,
         min_length=0, min_new_tokens=0, max_new_tokens=max_new_tokens,
         remove_invalid_values=False, renormalize_logits=False)
@@ -97,7 +99,8 @@ def generate_probes(assets, rows, *, device="cpu", precision="fp32", max_new_tok
                                     "signals": output_signals(row["source"], prediction, tokens, codec, max_new_tokens)})
         metadata = {"assets": codec.fingerprint(), "seconds": time.time()-started,
                     "device": device, "precision": precision, "decoding": {
-                        "num_beams": 1, "do_sample": False, "max_new_tokens": max_new_tokens,
+                        "num_beams": beams, "length_penalty": length_penalty,
+                        "do_sample": False, "max_new_tokens": max_new_tokens,
                         "decoder_start_token_id": codec.special["eos"], "forced_bos_token_id": None,
                         "repetition_penalty": 1.0, "no_repeat_ngram_size": 0},
                     "torch": torch.__version__, "transformers": __import__('transformers').__version__}
