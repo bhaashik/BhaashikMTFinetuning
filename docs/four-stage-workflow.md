@@ -1,3 +1,44 @@
+## Duplicate-pair policy and split integrity
+
+Naturally repeated source–target pairs **within the same split** are
+allowed by default. They are expected in some corpora and are counted,
+not silently discarded. The optional settings-cell flag
+`"reject_within_split_duplicates": True` rejects such repetitions
+when you intentionally conduct stricter corpus analysis.
+
+**Cross-split leakage is never optional.** A repeated normalized source,
+source–target pair or record ID in different train/dev/test
+partitions is always an error—even when
+`"validate_data": False`. For corpus files split by this repository, an
+additional complete-input integrity check verifies that every original
+record occurs exactly once across the three outputs: the splitter may
+neither invent nor drop records. This check includes naturally repeated
+pairs with distinct original record IDs.
+
+## Cleaning up an incorrect experiment
+
+Each model notebook has a final **optional cleanup cell** that is normally
+disabled. In the FIRST settings cell, set:
+
+```python
+"cleanup_action": "preview",         # off | preview | delete
+"cleanup_target_stage": "low_baseline",  # one of the four stages
+"cleanup_confirmation": "",
+```
+
+**Run only the first settings cell and final cleanup cell**; do not Run All.
+A preview prints the exact generated stage folder, stage-specific
+configuration files, stage ZIP, file count, and size. To actually delete
+those generated outputs, change `cleanup_action` to `"delete"` and
+copy the exact required confirmation phrase shown by the preview into
+`cleanup_confirmation`. Run **only the cleanup cell** again.
+
+Cleanup never removes source texts, tagged JSONL, train/dev/test splits,
+shared corpus reports, original checkpoints, other experiment stages,
+or the GitHub checkout. It refuses symlinks and unsafe paths. The action
+does not remove saved Kaggle versions or archives copied to Google Drive.
+Only use it when the selected stage is definitely unwanted.
+
 # Four stages of translation-corpus evaluation
 
 The objective is to **document the usefulness, quality and novelty of the

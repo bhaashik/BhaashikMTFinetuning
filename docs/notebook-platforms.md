@@ -1,3 +1,10 @@
+> **Experiment cleanup:** If a Kaggle run was incorrect, the model
+> notebooks contain a disabled, dry-run cleanup cell at the end.
+> In the settings cell select `cleanup_action="preview"`, then execute
+> only the first settings and final cleanup cells. Do **not** Run All.
+> Deletion requires a second action and exact printed confirmation.
+> See [cleanup instructions](four-stage-workflow.md#cleaning-up-an-incorrect-experiment).
+
 > **Current default:** the notebook's first settings cell contains
 > `stage="lowest_baseline"`. It performs full dev/test inference without
 > fine-tuning and archives its own results. Read

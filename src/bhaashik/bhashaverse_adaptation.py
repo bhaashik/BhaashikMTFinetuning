@@ -59,7 +59,11 @@ def train_bhashaverse(config_path):
         manifest = json.loads(repair.read_text(encoding="utf-8"))
         if manifest.get("requires_embedding_training") and mode == "lora":
             raise ValueError("New dictionary/embedding rows require full training; attention-only LoRA freezes them")
-    audit_result = audit({"train": cfg["train_file"], "dev": cfg["dev_file"]})
+    audit_result = audit(
+        {"train": cfg["train_file"], "dev": cfg["dev_file"]},
+        reject_within_split_duplicates=cfg.get("reject_within_split_duplicates", False),
+        enforce_document_disjoint=cfg.get("group_by_document", True),
+    )
     train_rows, dev_rows = read_jsonl(cfg["train_file"]), read_jsonl(cfg["dev_file"])
     for row in train_rows + dev_rows:
         resolve_languages(row)

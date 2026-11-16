@@ -1,3 +1,20 @@
+## Repeated sentence pairs and leakage rules
+
+It is normal for a corpus to contain the same source–target pair multiple
+times. Such pairs **inside the same split** are permitted by default, and
+their counts are recorded by the audit. Set
+`reject_within_split_duplicates=True` only for strict corpus cleaning.
+When working in notebooks, set
+`"reject_within_split_duplicates": True` in the first settings cell.
+
+The exact source–target pair (or the same normalized source alone) must
+**never cross the train, development and test partitions**. Document IDs are also checked by default; `group_by_document=False` permits document boundaries to cross splits but never permits source/pair leakage. Cross-split
+leakage checks run even when optional `validate_data=False`. The splitter
+also verifies that the combined split records form an exact one-to-one
+partition of the original corpus, keeping originally repeated pairs in one
+split while preserving their distinct row IDs. The splitter does not
+silently deduplicate data or discard rows.
+
 > **Current usage:** configure `data_mode` in the notebook's
 > first `EXPERIMENT` cell: `aligned_text` (two files),
 > `tsv` (one tab-separated file), `jsonl`, `pre_split`, or
