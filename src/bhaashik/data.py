@@ -49,26 +49,43 @@ def file_hash(path):
     return digest.hexdigest()
 
 
-def audit(paths):
+def audit(paths, *, reject_within_split_duplicates=False):
+    """Always block cross-split leakage; optionally reject corpus repetitions.
+
+    Repeated parallel pairs already present *within one split* are allowed by
+    default. The same normalized source, exact pair, document ID, or row ID may
+    not occur in two different train/dev/test splits.
+    """
+    if not isinstance(reject_within_split_duplicates, bool):
+        raise TypeError("reject_within_split_duplicates must be a boolean")
     seen = {key: {} for key in ("id", "source", "pair", "document")}
-    counts = {}
+    counts, repeated_pairs = {}, {}
     for split, path in paths.items():
         rows = read_jsonl(path)
         counts[split] = len(rows)
+        local_pairs = set()
+        repeats = 0
         for row in rows:
-            keys = {"id": row["id"], "source": normalized(row["source"]),
-                    "pair": (normalized(row["source"]), normalized(row["target"]))}
+            pair = (normalized(row["source"]), normalized(row["target"]))
+            repeats += pair in local_pairs
+            local_pairs.add(pair)
+            keys = {"id": row["id"], "source": pair[0], "pair": pair}
             if row.get("document_id"):
                 keys["document"] = row["document_id"]
             for kind, value in keys.items():
                 previous = seen[kind].get(value)
                 if previous is not None and previous != split:
-                    raise ValueError(f"{kind} leakage between {previous} and {split}: {row['id']}")
+                    raise ValueError(
+                        f"{kind} leakage between {previous} and {split}: {row['id']}")
                 seen[kind][value] = split
-        pairs = {(normalized(r["source"]), normalized(r["target"])) for r in rows}
-        if len(pairs) != len(rows):
-            raise ValueError(f"duplicate parallel pairs inside {split}")
-    return {"counts": counts, "sha256": {k: file_hash(v) for k, v in paths.items()}}
+        repeated_pairs[split] = repeats
+        if reject_within_split_duplicates and repeats:
+            raise ValueError(f"duplicate parallel pairs inside {split}: {repeats} repeated rows")
+    return {
+        "counts": counts,
+        "within_split_duplicate_pairs": repeated_pairs,
+        "sha256": {key: file_hash(path) for key, path in paths.items()},
+    }
 
 
 def write_json(path, value):
