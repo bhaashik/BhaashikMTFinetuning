@@ -4,6 +4,7 @@ Never deletes source corpora, split manifests, shared reports, original model
 assets, repository files or unrelated run stages. No wildcard deletion.
 """
 from pathlib import Path
+import re
 import shutil
 
 from .experiment_workflow import STAGES, experiment_paths
@@ -24,6 +25,16 @@ def cleanup_stage(root, cfg, *, family, stage=None, action="preview",
     root = Path(root).resolve()
     if not (root / "pyproject.toml").is_file():
         raise ValueError("Refusing cleanup outside a recognized repository root")
+    # Do not accept path separators or traversal in any name used to build
+    # the otherwise deterministic experiment directory.
+    for key in ("dataset_id", "run_label"):
+        value = cfg.get(key)
+        if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", value):
+            raise ValueError(f"Unsafe cleanup experiment identifier: {key}")
+    for key in ("source_lang", "target_lang"):
+        value = cfg.get(key)
+        if not isinstance(value, str) or not re.fullmatch(r"[a-z]{3}_[A-Z][a-z]{3}", value):
+            raise ValueError(f"Unsafe cleanup language tag: {key}")
     local = {**cfg, "stage": selected}
     paths = experiment_paths(root, local, family=family)
     run = paths["run"]
@@ -32,6 +43,8 @@ def cleanup_stage(root, cfg, *, family, stage=None, action="preview",
     archive_path = paths["archive"]
     trainer_path = config_path.with_name(config_path.stem + "-train.json")
     expected_paths = [stage_path, config_path, trainer_path, archive_path]
+    if run.is_symlink() or (root / "runs").is_symlink() or (root / "configs").is_symlink():
+        raise ValueError("Refusing cleanup through a symlinked run or configuration directory")
     if (run.parent.resolve() != (root / "runs").resolve()
             or stage_path.parent.resolve() != run.resolve()
             or config_path.parent.resolve() != (root / "configs").resolve()
