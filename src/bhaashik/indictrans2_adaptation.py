@@ -80,7 +80,11 @@ def train_indictrans2(config_path):
     output = Path(cfg["output_dir"])
     if output.exists() and any(output.iterdir()) and not cfg.get("resume_from_checkpoint"):
         raise FileExistsError("Use an empty output_dir or explicit resume_from_checkpoint")
-    audited = audit({"train": cfg["train_file"], "dev": cfg["dev_file"]})
+    audited = audit(
+        {"train": cfg["train_file"], "dev": cfg["dev_file"]},
+        reject_within_split_duplicates=cfg.get("reject_within_split_duplicates", False),
+        enforce_document_disjoint=cfg.get("group_by_document", True),
+    )
     from IndicTransToolkit.processor import IndicProcessor
     import torch
     from datasets import Dataset
