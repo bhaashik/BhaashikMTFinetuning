@@ -137,6 +137,7 @@ def train_bhashaverse(config_path):
     started = time.time()
     trained = trainer.train(resume_from_checkpoint=cfg.get("resume_from_checkpoint"))
     dev_result = trainer.evaluate()
+    write_json(output / "trainer_history.json", trainer.state.log_history)
     if mode == "lora":
         model = model.merge_and_unload()
     model.config.use_cache = True
