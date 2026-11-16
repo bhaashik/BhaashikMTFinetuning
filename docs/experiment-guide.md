@@ -134,9 +134,14 @@ across notebook cells.
 ```
 
 You can restart the session, reimport the same notebook and run all its
-cells in order. The shared setup preserves the original training
-configuration and verifies the same data, while skipping the trainer and
-generating the final test/report files. It creates a separate
+cells in order **provided the earlier exported model is still present** under
+its original `runs/RUN_NAME/` path. On a fresh Kaggle runtime, first restore
+the model from your saved version or archive (and restore/recreate the same
+input data and split manifest). Otherwise `posttrain_test=True` will
+correctly report that the trained checkpoint is missing. The shared setup
+preserves the original training configuration and verifies the same data,
+while skipping the trainer and generating final test/report files.
+It creates a separate
 `*-publication.zip` instead of overwriting the original training ZIP.
 Do not change the model, training hyperparameters or `run_label` in this
 reporting-only pass.
