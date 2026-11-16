@@ -168,6 +168,7 @@ def train_indictrans2(config_path):
     started = time.time()
     result = trainer.train(resume_from_checkpoint=cfg.get("resume_from_checkpoint"))
     dev_metrics = trainer.evaluate()
+    write_json(output / "trainer_history.json", trainer.state.log_history)
     if mode == "lora":
         model = model.merge_and_unload()
     model.save_pretrained(output, safe_serialization=True)
