@@ -49,15 +49,17 @@ def file_hash(path):
     return digest.hexdigest()
 
 
-def audit(paths, *, reject_within_split_duplicates=False):
+def audit(paths, *, reject_within_split_duplicates=False,
+          enforce_document_disjoint=True):
     """Always block cross-split leakage; optionally reject corpus repetitions.
 
     Repeated parallel pairs already present *within one split* are allowed by
-    default. The same normalized source, exact pair, document ID, or row ID may
-    not occur in two different train/dev/test splits.
+    default. The same normalized source, exact pair, or row ID may never
+    cross train/dev/test. Document IDs are also disjoint by default, unless
+    group_by_document=False has been explicitly selected.
     """
-    if not isinstance(reject_within_split_duplicates, bool):
-        raise TypeError("reject_within_split_duplicates must be a boolean")
+    if not isinstance(reject_within_split_duplicates, bool) or not isinstance(enforce_document_disjoint, bool):
+        raise TypeError("Duplicate and document policy flags must be booleans")
     seen = {key: {} for key in ("id", "source", "pair", "document")}
     counts, repeated_pairs = {}, {}
     for split, path in paths.items():
@@ -70,7 +72,7 @@ def audit(paths, *, reject_within_split_duplicates=False):
             repeats += pair in local_pairs
             local_pairs.add(pair)
             keys = {"id": row["id"], "source": pair[0], "pair": pair}
-            if row.get("document_id"):
+            if enforce_document_disjoint and row.get("document_id"):
                 keys["document"] = row["document_id"]
             for kind, value in keys.items():
                 previous = seen[kind].get(value)
