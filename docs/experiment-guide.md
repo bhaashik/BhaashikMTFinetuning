@@ -124,12 +124,22 @@ leave `data_mode="aligned_text"` and change **only** `max_steps=1`.
 `data_report=True`. The report code is in the library, not spread
 across notebook cells.
 
-**Post-training publication evaluation:** set `posttrain_test=True` and
-`publication_report=True` **after** selecting the model and frozen
-configuration; use the same `run_label` and `train_seed` if continuing an
-already saved run. Execute the optional test/report cell only, without
-running training again. If you rerun the full notebook with the same
-nonempty model output path, the trainer deliberately rejects overwriting it.
+**Post-training publication evaluation:** keep the same
+`run_label`, `train_seed`, dataset and model/trainer settings; change just:
+
+```python
+"allow_training": False,
+"posttrain_test": True,
+"publication_report": True,
+```
+
+You can restart the session, reimport the same notebook and run all its
+cells in order. The shared setup preserves the original training
+configuration and verifies the same data, while skipping the trainer and
+generating the final test/report files. It creates a separate
+`*-publication.zip` instead of overwriting the original training ZIP.
+Do not change the model, training hyperparameters or `run_label` in this
+reporting-only pass.
 
 **More seeds:** keep `split_seed` fixed but change `train_seed` and
 `run_label` for each independent model run. Compare on the same held-out
