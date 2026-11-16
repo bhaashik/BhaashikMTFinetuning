@@ -168,6 +168,7 @@ def train(config_path):
     trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     train_result = trainer.train(resume_from_checkpoint=config.get("resume_from_checkpoint"))
     dev_metrics = trainer.evaluate()
+    write_json(output / "trainer_history.json", trainer.state.log_history)
     if mode == "lora":
         model = model.merge_and_unload()
     model.config.use_cache = True
