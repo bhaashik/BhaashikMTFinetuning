@@ -197,7 +197,8 @@ def train(config_path):
 
 def translate(model_id, src, tgt, input_path, output, revision=None, batch_size=4,
               max_length=256, max_new_tokens=256, beams=4,
-              conditioning="native", proxy_source_lang=None, proxy_target_lang=None):
+              conditioning="native", proxy_source_lang=None, proxy_target_lang=None,
+              length_penalty=1.0):
     """Run direction-aware NLLB translation; preserve original row metadata."""
     import torch
     from collections import defaultdict
@@ -234,7 +235,8 @@ def translate(model_id, src, tgt, input_path, output, revision=None, batch_size=
                                     truncation=True, max_length=max_length).to(device)
                 tokens = model.generate(
                     **encoded, forced_bos_token_id=target_id,
-                    max_new_tokens=max_new_tokens, num_beams=beams)
+                    max_new_tokens=max_new_tokens, num_beams=beams,
+                    length_penalty=length_penalty)
                 for i, text in zip(batch_indices, tokenizer.batch_decode(
                         tokens, skip_special_tokens=True)):
                     predictions[i] = text
@@ -249,6 +251,6 @@ def translate(model_id, src, tgt, input_path, output, revision=None, batch_size=
         "proxy_source_lang": proxy_source_lang, "proxy_target_lang": proxy_target_lang,
         "n": len(rows), "directions": len(groups), "truncated_sources": truncated,
         "input_sha256": file_hash(input_path), "output_sha256": file_hash(output),
-        "num_beams": beams, "max_length": max_length,
+        "num_beams": beams, "length_penalty": length_penalty, "max_length": max_length,
         "max_new_tokens": max_new_tokens, "seconds": time.time()-started,
         "device": device})
