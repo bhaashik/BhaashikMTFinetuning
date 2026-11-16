@@ -166,7 +166,10 @@ def split_parallel_jsonl(input_path, output_dir, *, seed=42,
         if not manifest_path.is_file():
             raise FileExistsError(f"Output exists without a complete manifest: {destination}")
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if any(manifest.get(k) != v for k, v in expected.items()):
+        # Backward-compatible with earlier split manifests which did not
+        # record the new optional strict within-split duplicate policy.
+        if any(manifest.get(k, False if k == "reject_within_split_duplicates" else None) != v
+               for k, v in expected.items()):
             raise FileExistsError("Existing split was made with different data/options")
         if any(not path.is_file() or file_hash(path) !=
                manifest.get("output_sha256", {}).get(part)
