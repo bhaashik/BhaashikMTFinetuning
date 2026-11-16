@@ -88,7 +88,11 @@ def train(config_path):
     output = Path(config["output_dir"])
     if output.exists() and any(output.iterdir()) and not config.get("resume_from_checkpoint"):
         raise ValueError("output_dir is nonempty; use a new run directory or explicit resume_from_checkpoint")
-    data_audit = audit({"train": config["train_file"], "dev": config["dev_file"]})
+    data_audit = audit(
+        {"train": config["train_file"], "dev": config["dev_file"]},
+        reject_within_split_duplicates=config.get("reject_within_split_duplicates", False),
+        enforce_document_disjoint=config.get("group_by_document", True),
+    )
     model, tokenizer = load(config["model"], config.get("revision"))
     if mode == "lora" and Path(config["model"], "bhaashik_extension.json").exists():
         raise ValueError("Extended language embeddings require mode=full; LoRA freezes them")
