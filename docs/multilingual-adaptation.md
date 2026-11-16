@@ -1,3 +1,10 @@
+> **Update for current notebooks:** edit only the single
+> `EXPERIMENT` dictionary at the top; the older `SPLIT_FROM_SINGLE_FILE`,
+> `CONVERT_ALIGNED_TEXT`, and scattered flag examples further down describe
+> the prior interface. Use [experiment-guide.md](experiment-guide.md) for
+> current configuration values. Use [notebook-platforms.md](notebook-platforms.md)
+> for Kaggle and Colab paths.
+
 # Explicit language tags and model-specific adaptation
 
 ## Shared UTF-8 JSONL contract
