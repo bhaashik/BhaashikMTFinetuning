@@ -1,3 +1,12 @@
+> **Current notebook workflow:** the three model notebooks use one editable
+> `EXPERIMENT` settings cell, near the top. For routine dataset paths,
+> GPU selection, Save Version and Colab Drive mount, use
+> [the Kaggle/Colab guide](notebook-platforms.md). See also
+> [the experiment guide](experiment-guide.md).
+>
+> This page contains older background material and individual legacy flags;
+> prefer the current one-cell settings for new experiments.
+
 # Run on Kaggle Notebooks
 
 ## Import and enable the runtime
