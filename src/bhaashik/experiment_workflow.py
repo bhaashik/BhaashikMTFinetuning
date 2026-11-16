@@ -188,6 +188,7 @@ def prepare_parallel_data(root, cfg, *, model_family, print_summary=True):
     split_audit = audit(
         paths,
         reject_within_split_duplicates=cfg.get("reject_within_split_duplicates", False),
+        enforce_document_disjoint=cfg.get("group_by_document", True),
     )
     counts = {}
     for split, path in paths.items():
@@ -234,6 +235,8 @@ def training_parameters(cfg, prepared, paths, *, model_family):
         "dev_file": str(prepared["paths"]["dev"]),
         "output_dir": str(paths.get("stage", paths["run"]) / "model"),
         "mode": cfg["finetune_mode"], "seed": cfg["train_seed"],
+        "group_by_document": cfg.get("group_by_document", True),
+        "reject_within_split_duplicates": cfg.get("reject_within_split_duplicates", False),
         "batch_size": cfg["batch_size"],
         "gradient_accumulation_steps": cfg["gradient_accumulation_steps"],
         "max_length": cfg["max_length"], "max_steps": cfg["max_steps"],
