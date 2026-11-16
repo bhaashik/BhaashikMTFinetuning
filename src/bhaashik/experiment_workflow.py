@@ -14,6 +14,7 @@ from .multilingual import require_routes
 from .text_conversion import convert_aligned_text_files, convert_parallel_tsv
 
 VALID_MODES = ("aligned_text", "tsv", "jsonl", "pre_split", "example")
+STAGES = ("lowest_baseline", "low_baseline", "decoding_search", "language_extension")
 ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
 
@@ -49,6 +50,37 @@ def check_settings(cfg, *, model_family):
     mode = cfg.get("data_mode", "aligned_text")
     if mode not in VALID_MODES:
         raise ValueError(f"data_mode must be one of {VALID_MODES}")
+    stage = cfg.get("stage", "lowest_baseline")
+    if stage not in STAGES:
+        raise ValueError(f"stage must be one of {STAGES}")
+    if "result_plots" in cfg and not isinstance(cfg["result_plots"], bool):
+        raise ValueError("result_plots must be True or False")
+    if "search_grid" in cfg:
+        grid = cfg["search_grid"]
+        if not isinstance(grid, (tuple, list)) or not grid:
+            raise ValueError("search_grid must contain at least one candidate")
+        for item in grid:
+            if (not isinstance(item, dict)
+                    or isinstance(item.get("beams"), bool)
+                    or not isinstance(item.get("beams"), int)
+                    or item["beams"] < 1
+                    or not isinstance(item.get("length_penalty"), (float, int))
+                    or item["length_penalty"] <= 0):
+                raise ValueError("Each decoding-search candidate requires positive beams and length_penalty")
+    if stage == "language_extension":
+        if cfg.get("finetune_mode") != "full":
+            raise ValueError("Language extension requires full finetuning to train new embeddings")
+        if model_family == "nllb":
+            if cfg.get("conditioning") != "dedicated_token" or not cfg.get("extend_language"):
+                raise ValueError("NLLB extension needs dedicated_token and extend_language")
+            if cfg["extend_language"] not in (cfg["source_lang"], cfg["target_lang"]):
+                raise ValueError("extend_language must match the corpus source or target tag")
+        if model_family == "indictrans2" and cfg.get("conditioning") != "dedicated_token":
+            raise ValueError("IndicTrans2 extension needs dedicated_token")
+        if model_family == "bhashaverse" and cfg.get("conditioning") != "text_prefix":
+            raise ValueError("BhashaVerse requires original or explicitly repaired prefix assets")
+    if stage in ("low_baseline", "language_extension") and cfg.get("allow_training") is not True:
+        raise ValueError("This stage requires allow_training=True and a fresh GPU session")
     source = _require_string(cfg, "source_lang")
     target = _require_string(cfg, "target_lang")
     from .multilingual import resolve_languages
@@ -176,11 +208,13 @@ def experiment_paths(root, cfg, *, family, prepared=None):
     pair = prepared["pair"] if prepared else f"{cfg['source_lang'].split('_')[0]}-{cfg['target_lang'].split('_')[0]}"
     slug = f"{family}-{pair}-{cfg['run_label']}-s{cfg['train_seed']}"
     root = Path(root).resolve()
+    stage = cfg.get("stage", "lowest_baseline")
     return {
         "run": root / "runs" / slug,
+        "stage": root / "runs" / slug / stage,
         "report": root / "runs" / f"{slug}-report",
-        "config": root / "configs" / f"{slug}.json",
-        "archive": root.parent / f"{slug}-artifacts.zip",
+        "config": root / "configs" / f"{slug}-{stage}.json",
+        "archive": root.parent / f"{slug}-{stage}-artifacts.zip",
     }
 
 
@@ -189,7 +223,7 @@ def training_parameters(cfg, prepared, paths, *, model_family):
     common = {
         "train_file": str(prepared["paths"]["train"]),
         "dev_file": str(prepared["paths"]["dev"]),
-        "output_dir": str(paths["run"]),
+        "output_dir": str(paths.get("stage", paths["run"]) / "model"),
         "mode": cfg["finetune_mode"], "seed": cfg["train_seed"],
         "batch_size": cfg["batch_size"],
         "gradient_accumulation_steps": cfg["gradient_accumulation_steps"],
@@ -247,7 +281,7 @@ def write_experiment_config(cfg, prepared, paths, trainer_cfg):
         stable_keys = ("trainer", "data_sha256", "data_counts", "split_manifest")
         immutable_experiment_keys = (
             "run_label", "dataset_id", "split_seed", "train_seed",
-            "data_mode", "source_lang", "target_lang",
+            "data_mode", "source_lang", "target_lang", "stage",
         )
         changed_identity = any(
             old.get("experiment", {}).get(key) != cfg.get(key)
@@ -286,15 +320,12 @@ def report_data_if_enabled(cfg, prepared, report_dir):
 
 def save_optional_archive(root, cfg, paths, *, baseline=None, report=None):
     if not cfg["save_archive"]:
-        print("Artifact ZIP OFF. Set save_archive=True to package this run.")
+        print("Artifact ZIP OFF. Set save_archive=True to package this stage.")
         return None
     from .artifacts import archive_experiment
     destination = paths["archive"]
-    if cfg["publication_report"]:
-        destination = destination.with_name(
-            destination.stem + "-publication" + destination.suffix)
     return archive_experiment(
-        root, paths["run"], destination,
+        root, paths.get("stage", paths["run"]), destination,
         config_path=paths["config"],
         baseline_dir=baseline if baseline and Path(baseline).is_dir() else None,
         report_dir=report if report and Path(report).is_dir() else None,
