@@ -176,7 +176,8 @@ def split_parallel_jsonl(input_path, output_dir, *, seed=42,
                for part, path in paths.items()):
             raise ValueError("Saved split differs from its manifest; refusing reuse")
         verify_split_integrity(rows, paths)
-        audit(paths, reject_within_split_duplicates=reject_within_split_duplicates)
+        audit(paths, reject_within_split_duplicates=reject_within_split_duplicates,
+              enforce_document_disjoint=group_by_document)
         return manifest
 
     allocated = _assign(groups, fractions, seed)
@@ -202,7 +203,8 @@ def split_parallel_jsonl(input_path, output_dir, *, seed=42,
             distribution[part] = dict(sorted(directions.items()))
             output_hashes[part] = file_hash(path)
         integrity = verify_split_integrity(rows, split_paths)
-        audit(split_paths, reject_within_split_duplicates=reject_within_split_duplicates)
+        audit(split_paths, reject_within_split_duplicates=reject_within_split_duplicates,
+              enforce_document_disjoint=group_by_document)
         manifest = {
             **expected,
             "input_path": str(input_path),
