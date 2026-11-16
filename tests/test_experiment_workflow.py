@@ -39,10 +39,10 @@ def _input_pair(root, n=40):
     folder = root / "input"
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "bho.txt").write_text(
-        "".join(f"भोजपुरी वाक्य {i}\\n" for i in range(n)),
+        "".join(f"भोजपुरी वाक्य {i}\n" for i in range(n)),
         encoding="utf-8")
     (folder / "hin.txt").write_text(
-        "".join(f"हिंदी अनुवाद {i}\\n" for i in range(n)),
+        "".join(f"हिंदी अनुवाद {i}\n" for i in range(n)),
         encoding="utf-8")
 
 
@@ -92,8 +92,8 @@ def test_one_cell_change_controls_split_and_model_run(tmp_path):
 def test_one_file_tsv_mode_roundtrip(tmp_path):
     input_file = tmp_path / "input" / "pairs.tsv"
     input_file.parent.mkdir(parents=True)
-    input_file.write_text("source\\ttarget\\n" + "".join(
-        f"मैथिली वाक्य {i}\\tहिंदी वाक्य {i}\\n" for i in range(33)),
+    input_file.write_text("source\ttarget\n" + "".join(
+        f"मैथिली वाक्य {i}\tहिंदी वाक्य {i}\n" for i in range(33)),
         encoding="utf-8")
     cfg = _cfg(data_mode="tsv", source_lang="mai_Deva",
                target_lang="hin_Deva", tsv_file="input/pairs.tsv",
@@ -111,12 +111,12 @@ def test_one_file_tsv_mode_roundtrip(tmp_path):
 
 def test_tsv_rejects_blank_or_extra_tab_without_output(tmp_path):
     path = tmp_path / "bad.tsv"
-    path.write_text("one\\tहिंदी\\nsecond\\t\\n")
+    path.write_text("one\tहिंदी\nsecond\t\n")
     with pytest.raises(ValueError, match="exactly two nonempty columns"):
         convert_parallel_tsv(path, tmp_path / "bad.jsonl",
                              source_lang="bho_Deva", target_lang="hin_Deva")
     assert not (tmp_path / "bad.jsonl").exists()
-    path.write_text("one\\tहिंदी\\tother\\n")
+    path.write_text("one\tहिंदी\tother\n")
     with pytest.raises(ValueError):
         convert_parallel_tsv(path, tmp_path / "bad.jsonl",
                              source_lang="bho_Deva", target_lang="hin_Deva")
