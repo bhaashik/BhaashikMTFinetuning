@@ -81,12 +81,18 @@ def test_one_cell_change_controls_split_and_model_run(tmp_path):
     assert pa["data_dir"] != pb["data_dir"]
     assert experiment_paths(tmp_path, a, family="nllb", prepared=pa)["run"] != (
         experiment_paths(tmp_path, b, family="nllb", prepared=pb)["run"])
-    new = _cfg(run_label="same", epochs=2)
     paths = experiment_paths(tmp_path, a, family="nllb", prepared=pa)
     trainer = training_parameters(a, pa, paths, model_family="nllb")
     write_experiment_config(a, pa, paths, trainer)
-    with pytest.raises(FileExistsError, match="Saved settings differ"):
-        write_experiment_config(new, pa, paths, trainer)
+    changed_train = _cfg(epochs=2)
+    new_trainer = training_parameters(changed_train, pa, paths, model_family="nllb")
+    with pytest.raises(FileExistsError, match="Saved training settings/data differ"):
+        write_experiment_config(changed_train, pa, paths, new_trainer)
+    # Only optional, post-training reporting flags can change in-place.
+    reporting = _cfg(allow_training=False, posttrain_test=True,
+                     publication_report=True)
+    assert write_experiment_config(reporting, pa, paths, trainer) == (
+        paths["config"].with_name(paths["config"].stem + "-train.json"))
 
 
 def test_one_file_tsv_mode_roundtrip(tmp_path):
