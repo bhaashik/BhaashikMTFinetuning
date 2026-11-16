@@ -1,3 +1,21 @@
+## One-cell experiment configuration (native NLLB by default)
+
+The three model notebooks now have a **single editable settings cell near the
+top**. Later cells only read `EXPERIMENT`. For the first real run, use native
+NLLB with two aligned UTF-8 source/target text files (or one tab-separated
+source/target file), `data_mode="aligned_text"`, `allow_training=True`,
+`finetune_mode="lora"` and `max_steps=-1`. **Development loss and
+best-checkpoint selection run each epoch**; extra untouched-model dev
+translation, test inference, BLEU/chrF++, publication figures and review
+sheets are off unless enabled. The training result and config can be
+archived in a portable ZIP.
+
+[Start with the complete experiment guide](docs/experiment-guide.md), and
+[read the everyday Kaggle/Colab guide](docs/notebook-platforms.md) for exact
+`/kaggle/input`, `/kaggle/working`, `/content` and Drive paths, GPU
+settings, version saving and common errors. A new run needs only edits in
+the first settings cell and a fresh notebook session.
+
 # Bhaashik · Hindi-belt neural machine translation
 
 A research toolkit for adapting encoder–decoder MT models, primarily to **Bhojpuri, Maithili, and Magahi**, with exploratory corpus review and model-comparison coverage for **Awadhi, Braj, Nepali, and Marwari**, using Hindi and English as bridge languages. Designed for Colab/Kaggle GPUs and standard Hugging Face checkpoints. This is an experiment framework, **not a claim of new state-of-the-art results**.
