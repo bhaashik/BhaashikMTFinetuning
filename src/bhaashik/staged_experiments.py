@@ -177,6 +177,50 @@ def _render_plot(scores, output_dir, title):
     return [image]
 
 
+
+
+def _plot_training_history(stage_dir):
+    """Save optional loss/eval-loss figure as an SVG without new dependencies."""
+    history_path = Path(stage_dir) / "training_history.json"
+    if not history_path.exists():
+        return None
+    history = json.loads(history_path.read_text(encoding="utf-8"))
+    lines = {key: [(float(item["step"]), float(item[key]))
+                   for item in history if key in item and "step" in item]
+             for key in ("loss", "eval_loss")}
+    if not any(lines.values()):
+        return None
+    all_points = [point for sequence in lines.values() for point in sequence]
+    xmax = max(point[0] for point in all_points) or 1
+    ymin = min(point[1] for point in all_points)
+    ymax = max(point[1] for point in all_points)
+    delta = (ymax - ymin) or 1
+    svg = ['<svg xmlns="http://www.w3.org/2000/svg" width="720" height="380">',
+           '<rect width="100%" height="100%" fill="white"/>',
+           '<text x="40" y="30" font-size="19">Training and development loss</text>',
+           '<line x1="60" y1="325" x2="680" y2="325" stroke="#333"/>',
+           '<line x1="60" y1="55" x2="60" y2="325" stroke="#333"/>']
+    for name, color in (("loss", "#156b91"), ("eval_loss", "#be6a20")):
+        coords = lines[name]
+        if coords:
+            points = " ".join(
+                f"{60+620*x/xmax:.2f},{320-255*(y-ymin)/delta:.2f}"
+                for x, y in coords)
+            svg.append(f'<polyline points="{points}" fill="none" '
+                       f'stroke="{color}" stroke-width="3"/>')
+            for x, y in coords:
+                svg.append(f'<circle cx="{60+620*x/xmax:.2f}" '
+                           f'cy="{320-255*(y-ymin)/delta:.2f}" '
+                           f'r="3" fill="{color}"/>')
+    svg += [
+        '<text x="100" y="358" font-size="13" fill="#156b91">Training loss</text>',
+        '<text x="300" y="358" font-size="13" fill="#be6a20">Development loss</text>',
+        '</svg>'
+    ]
+    output = Path(stage_dir) / "training_loss.svg"
+    output.write_text("\n".join(svg) + "\n", encoding="utf-8")
+    return output
+
 def _training_history(model_dir, stage_dir):
     p = Path(model_dir) / "trainer_history.json"
     if not p.is_file():
@@ -322,7 +366,6 @@ def run_stage(root, cfg, prepared, paths, trainer_cfg_path, *, family):
     if (stage_dir / "stage_results.json").is_file():
         raise FileExistsError(f"Stage already complete: {stage_dir}. Change run_label.")
     stage_dir.mkdir(parents=True, exist_ok=True)
-    check_model_access(cfg, family=family, root=root)
     started = time.time()
     stage_manifest = {
         "stage": stage, "model_family": family, "status": "started",
@@ -333,6 +376,7 @@ def run_stage(root, cfg, prepared, paths, trainer_cfg_path, *, family):
     }
     write_json(stage_dir / "stage_manifest.json", stage_manifest)
     try:
+        check_model_access(cfg, family=family, root=root)
         train_result = None
         search_report = None
         if stage in ("low_baseline", "language_extension"):
@@ -362,6 +406,10 @@ def run_stage(root, cfg, prepared, paths, trainer_cfg_path, *, family):
                       if stage != "lowest_baseline" else None)
         charts = (_render_plot(scores, stage_dir, f"{family} · {stage}")
                   if cfg.get("result_plots", True) else [])
+        if cfg.get("result_plots", True):
+            loss_chart = _plot_training_history(stage_dir)
+            if loss_chart is not None:
+                charts.append(loss_chart)
         results = {
             "status": "complete", "stage": stage, "family": family,
             "data_sha256": prepared["data_sha256"],
