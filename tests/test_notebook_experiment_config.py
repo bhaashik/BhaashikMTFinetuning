@@ -36,9 +36,10 @@ def test_experiment_flags_are_single_source_of_truth():
         assert cfg["data_mode"] == "aligned_text"
         assert cfg["validate_data"] is False
         assert cfg["data_report"] is False
-        assert cfg["pretrain_baseline"] is False
-        assert cfg["posttrain_test"] is False
-        assert cfg["publication_report"] is False
+        assert cfg["stage"] == "lowest_baseline"
+        assert cfg["result_plots"] is True
+        assert cfg["search_metric"] == "chrfpp"
+        assert len(cfg["search_grid"]) >= 2
         assert cfg["split_ratios"] == (0.8, 0.1, 0.1) or cfg["split_ratios"] == [0.8, 0.1, 0.1]
         assert cfg["max_steps"] == -1
         assert cfg["include_checkpoints"] is False
@@ -51,8 +52,8 @@ def test_first_real_nllb_run_defaults():
     cfg = _configuration(nb)
     assert cfg["source_lang"] == "bho_Deva"
     assert cfg["target_lang"] == "hin_Deva"
-    assert cfg["finetune_mode"] == "lora"
-    assert cfg["allow_training"] is True
+    assert cfg["finetune_mode"] == "full"
+    assert cfg["allow_training"] is False
     assert cfg["epochs"] == 3
     assert cfg["setup_mode"] == "train"
     assert cfg["extend_language"] is None
