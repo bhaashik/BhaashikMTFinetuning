@@ -1,3 +1,10 @@
+> **Current usage:** configure `data_mode` in the notebook's
+> first `EXPERIMENT` cell: `aligned_text` (two files),
+> `tsv` (one tab-separated file), `jsonl`, `pre_split`, or
+> `example`. The shared workflow handles conversion and seeded splitting;
+> old snippets below remain valid as direct Python-library calls.
+> See [the experiment guide](experiment-guide.md).
+
 # Data contract and provenance
 
 Each UTF-8 JSONL row is one parallel sentence:
