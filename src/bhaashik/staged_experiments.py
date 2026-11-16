@@ -61,8 +61,6 @@ def check_model_access(cfg, *, family, root):
                         proxy_tgt=cfg.get("proxy_target_lang"))
     if family == "bhashaverse":
         from .preflight import FairseqCodec, checkpoint_layout
-        from .bhashaverse_adaptation import validate_prefix_routes
-        from .multilingual import resolve_languages
         assets = resolve_path(root, cfg["model_assets"])
         codec = FairseqCodec(assets)
         layout = checkpoint_layout(codec)
@@ -206,6 +204,7 @@ def _train(root, cfg, paths, trainer_config, *, family):
         raise ValueError("This stage needs allow_training=True")
     if family == "nllb":
         from .modeling import train
+        trainer_cfg = json.loads(Path(trainer_config).read_text(encoding="utf-8"))
         if cfg["stage"] == "language_extension":
             from .modeling import extend
             if cfg.get("conditioning") != "dedicated_token":
@@ -218,8 +217,11 @@ def _train(root, cfg, paths, trainer_config, *, family):
                 extend(cfg["model_id"], extended, language,
                        donor=cfg.get("language_donor", "hin_Deva"),
                        revision=cfg.get("model_revision"))
-            trainer_config["model"] = str(extended)
-            trainer_config["revision"] = None
+            trainer_cfg["model"] = str(extended)
+            trainer_cfg["revision"] = None
+            effective = paths["stage"] / "effective_trainer_config.json"
+            write_json(effective, trainer_cfg)
+            return train(effective)
         return train(trainer_config)
     if family == "indictrans2":
         from .indictrans2_adaptation import train_indictrans2
@@ -334,7 +336,6 @@ def run_stage(root, cfg, prepared, paths, trainer_cfg_path, *, family):
         train_result = None
         search_report = None
         if stage in ("low_baseline", "language_extension"):
-            trainer_cfg = json.loads(Path(trainer_cfg_path).read_text(encoding="utf-8"))
             train_result = _train(root, cfg, paths, trainer_cfg_path, family=family)
             _training_history(stage_dir / "model", stage_dir)
             model = model_for_stage(root, cfg, paths, family=family)
