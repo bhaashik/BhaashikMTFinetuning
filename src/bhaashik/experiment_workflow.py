@@ -245,7 +245,16 @@ def write_experiment_config(cfg, prepared, paths, trainer_cfg):
         # checkpoint path; preserve the exact original training configuration.
         # Trainer settings and data hashes must NEVER silently change.
         stable_keys = ("trainer", "data_sha256", "data_counts", "split_manifest")
-        if any(old.get(key) != serializable[key] for key in stable_keys):
+        immutable_experiment_keys = (
+            "run_label", "dataset_id", "split_seed", "train_seed",
+            "data_mode", "source_lang", "target_lang",
+        )
+        changed_identity = any(
+            old.get("experiment", {}).get(key) != cfg.get(key)
+            for key in immutable_experiment_keys
+        )
+        if changed_identity or any(old.get(key) != serializable[key]
+                                   for key in stable_keys):
             raise FileExistsError(
                 f"Saved training settings/data differ; choose a new run_label: {config_path}")
         if old != serializable:
