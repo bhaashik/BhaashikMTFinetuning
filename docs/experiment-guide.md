@@ -1,3 +1,14 @@
+> **Current experimental stages:** This guide also describes
+> the earlier training-first interface. The updated notebooks now default
+> to `stage="lowest_baseline"`: untouched pretrained model, complete
+> development and test translations, scores, plots and ZIP, **no training**.
+> Set `stage="low_baseline"` and `allow_training=True` to train.
+> Use `decoding_search` for dev-only beam/length-penalty selection and
+> `language_extension` for cautious new-language experiments.
+> **Read [the four-stage workflow](four-stage-workflow.md) first.**
+> The `stage` switch supersedes earlier
+> `pretrain_baseline`/`posttrain_test`/`publication_report` combinations.
+
 # Experiment settings: NLLB, IndicTrans2 and BhashaVerse
 
 ## Quick start: one real NLLB experiment

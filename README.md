@@ -1,158 +1,100 @@
-## One-cell experiment configuration (native NLLB by default)
-
-The three model notebooks now have a **single editable settings cell near the
-top**. Later cells only read `EXPERIMENT`. For the first real run, use native
-NLLB with two aligned UTF-8 source/target text files (or one tab-separated
-source/target file), `data_mode="aligned_text"`, `allow_training=True`,
-`finetune_mode="lora"` and `max_steps=-1`. **Development loss and
-best-checkpoint selection run each epoch**; extra untouched-model dev
-translation, test inference, BLEU/chrF++, publication figures and review
-sheets are off unless enabled. The training result and config can be
-archived in a portable ZIP.
-
-[Start with the complete experiment guide](docs/experiment-guide.md), and
-[read the everyday Kaggle/Colab guide](docs/notebook-platforms.md) for exact
-`/kaggle/input`, `/kaggle/working`, `/content` and Drive paths, GPU
-settings, version saving and common errors. A new run needs only edits in
-the first settings cell and a fresh notebook session.
-
 # Bhaashik · Hindi-belt neural machine translation
 
-A research toolkit for adapting encoder–decoder MT models, primarily to **Bhojpuri, Maithili, and Magahi**, with exploratory corpus review and model-comparison coverage for **Awadhi, Braj, Nepali, and Marwari**, using Hindi and English as bridge languages. Designed for Colab/Kaggle GPUs and standard Hugging Face checkpoints. This is an experiment framework, **not a claim of new state-of-the-art results**.
+A reproducible research toolkit for evaluating and adapting encoder–decoder
+translation models (NLLB, IndicTrans2 and BhashaVerse/OneNMT) on low-resource
+parallel corpora. The principal focus is **corpus novelty, linguistic quality
+and provenance**, not merely automated score improvements. It supports
+Bhojpuri, Maithili and Magahi, with exploratory experiments for Awadhi, Braj,
+Nepali and Marwari.
 
-## Start
+## Four experiment stages
 
-**[Quickstart](QUICKSTART.md)** · **[Colab guide](docs/colab.md)** · **[Kaggle guide](docs/kaggle.md)** · **[Titan V guide](docs/titan-v.md)**
+| Setting | Purpose | Default? |
+|---|---|---|
+| `stage="lowest_baseline"` | Untouched pretrained model; full dev/test translations, BLEU/chrF++, plots, review sheets and an independent ZIP | **Yes** |
+| `stage="low_baseline"` | Real finetuning with per-epoch dev loss; afterwards full dev/test inference and comparison to Stage 1 | No |
+| `stage="decoding_search"` | Try autoregressive decoding settings on dev; select once, then test | No |
+| `stage="language_extension"` | Cautious tokenizer/tag extension with full embedding training | No |
 
-[Open the NLLB notebook in Colab](https://colab.research.google.com/github/bhaashik/BhaashikMTFinetuning/blob/main/notebooks/01_nllb_research.ipynb) · [OneNMT checks/repairs notebook](notebooks/02_onenmt_preflight_repairs.ipynb)
+**Archiving does not depend on training.** Every stage creates its own
+manifest, prediction files, scores and ZIP. A partial or interrupted stage
+is explicitly marked incomplete. Stages share the same data and split seed.
 
-Clone the repository first. For GPU training, install the platform-appropriate CUDA PyTorch before the project extras; see the platform guides. Tests run on CPU without downloading research weights.
+Read the **[four-stage guide](docs/four-stage-workflow.md)** for the exact
+outputs, scientific interpretation and test-set caveats.
 
-### Kaggle / Colab setup (original notebooks)
+## Start with a notebook
 
-For corpus inspection and CPU-only preparation, choose **Accelerator: None**, and use the existing notebook setup cell with `SETUP_MODE='base'`. For the original OneNMT preflight notebook, `SETUP_MODE='preflight'` adds SentencePiece and Safetensors without loading the heavy training stack. When you switch to MT training, enable the GPU, restart the session and change to `SETUP_MODE='train'` to verify CUDA. The original `01_nllb_research.ipynb` and `02_onenmt_preflight_repairs.ipynb` now expose these modes; no `*-ver2` notebooks were edited.
+Use the notebook for your model family:
 
-The notebook installer forces `USE_TF=0` and `USE_FLAX=0` before importing Transformers, since this project uses PyTorch. It no longer pins Protobuf below 6 in training/repair extras, avoiding the documented conflict with newer Kaggle TensorFlow installations. Other preinstalled Kaggle packages may still produce pip resolver warnings; use a fresh session after a failed installation rather than stacking repairs. These changes have local unit-test coverage, but were not verified by running a hosted Kaggle GPU training session.
+- [NLLB notebook](notebooks/01_nllb_research.ipynb)
+- [IndicTrans2 notebook](notebooks/03_indictrans2_adaptation.ipynb)
+- [BhashaVerse/OneNMT notebook](notebooks/04_bhashaverse_adaptation.ipynb)
+- [Original OneNMT preflight and repair notebook](notebooks/02_onenmt_preflight_repairs.ipynb)
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e '.[train,repairs,dev]'
-bhaashik audit --train data/examples/train.jsonl --dev data/examples/dev.jsonl --test data/examples/test.jsonl
-pytest
+**Edit just the one `EXPERIMENT` settings cell near the top** of a fresh
+notebook, then execute cells in order. The notebook automatically clones the
+GitHub repository if it is absent. Default Stage 1 requires real
+source/target data paths and a selected inference model, but no finetuning.
+The NLLB notebook defaults to native `bho_Deva → hin_Deva` language tags.
+
+For Stage 2, change `stage` to `"low_baseline"` and
+`allow_training` to `True`. Set `max_steps=-1` to complete the
+chosen number of epochs. `finetune_mode="full"` updates all model
+parameters; change to `"lora"` on smaller GPUs.
+
+For a very small mechanics test, change `data_mode="example"`
+(Bhojpuri→Hindi fixture). It is **not** suitable for scientific scores.
+
+## Supported input data
+
+- Two aligned UTF-8 text files, one source sentence and reference translation
+  per corresponding line (`data_mode="aligned_text"`).
+- A two-column tab-separated text file (`data_mode="tsv"`).
+- One parallel JSONL file (`data_mode="jsonl"`).
+- Existing `train.jsonl`, `dev.jsonl`, `test.jsonl`
+  (`data_mode="pre_split"`).
+
+Conversion never modifies the original files. A seeded splitter keeps
+identical normalized source sentences and available document IDs together.
+Data and output hashes, generated IDs and language tags are preserved.
+
+## Practical usage and documentation
+
+- [Kaggle/Colab operations](docs/notebook-platforms.md): clone location,
+  attached datasets, GPU/Internet controls, Drive mounting, session outputs
+  and saving ZIPs.
+- [Full experiment settings](docs/experiment-guide.md): meaning and
+  interactions of important fields. The **four-stage guide supersedes**
+  older separate-baseline/reporting switches.
+- [Input and split format](docs/data.md)
+- [Multilingual tag adaptation](docs/multilingual-adaptation.md)
+- [Pretraining corpus review](docs/pretraining-review.md)
+- [Kaggle legacy guide](docs/kaggle.md), [Colab legacy guide](docs/colab.md),
+  [Titan V guide](docs/titan-v.md)
+
+Model-specific requirements: IndicTrans2 needs the reviewed official
+IndicTransToolkit and explicit opt-in to custom model code. BhashaVerse
+needs a verified HF MBart-compatible local checkpoint and original
+SentencePiece/fairseq dictionary mapping, with upstream output-parity
+checks. Adding a language tag alone does **not** establish new-language
+translation ability.
+
+Tests run using small synthetic checkpoints and mocked inference on CPU;
+published-model GPU runtime, real data quality and linguistic evaluation
+must be independently checked before research claims.
+
+## Code layout
+
+```text
+BhaashikMTFinetuning/
+  pyproject.toml
+  README.md
+  AGENTS.md
+  notebooks/
+  src/bhaashik/
+  tests/
+  docs/
+  scripts/
+  data/examples/
 ```
-
-Use [the notebook](notebooks/01_nllb_research.ipynb) on Colab or Kaggle for GPU training. Run commands from the repository root. Set Internet on in Kaggle; accept any upstream model access terms yourself. No token is required for public ungated models. Never put credentials in notebooks. Python 3.10–3.13 is the intended toolchain; CI covers 3.11 and 3.13. Python 3.13 selects SentencePiece 0.2.1 wheels; older supported Python versions retain 0.2.0.
-
-```bash
-# Replace the tiny illustrative data before research training.
-bhaashik train --config configs/nllb-bho-hin.json
-bhaashik translate --model runs/bho-hin --src bho_Deva --tgt hin_Deva \
-  --input data/examples/test.jsonl --output runs/bho-hin/predictions.jsonl
-bhaashik evaluate --input runs/bho-hin/predictions.jsonl --output runs/bho-hin/evaluation.json
-bhaashik errors --input runs/bho-hin/predictions.jsonl --output runs/bho-hin/annotations.csv
-```
-
-If an older Colab notebook tries to compile SentencePiece on Python 3.13, refresh the checkout and use the updated setup cell. Do not use a catch-all `sudo apt-get` fallback. See [Python 3.13 troubleshooting](docs/colab.md#python-313-and-the-ver-02-installation-failure).
-
-## Aligned text-file conversion
-
-For corpora stored as two parallel `.txt` files (source and target, one
-sentence per matching line), the NLLB, IndicTrans2 and BhashaVerse notebooks
-now have `CONVERT_ALIGNED_TEXT=True` with configurable source/target
-paths. The converter writes language-tagged JSONL and then uses the existing
-seeded splitter. Input text can live in a Kaggle dataset mounted under
-`/kaggle/input/`; outputs stay in `/kaggle/working/`. Blank or mismatched
-lines are rejected even when full `VALIDATE_DATA` is off. See
-[the data guide](docs/data.md#conversion-from-two-aligned-plain-text-files).
-
-## Optional one-file corpus preparation
-
-The three model notebooks now accept a single parallel JSONL file per pair
-via `SPLIT_FROM_SINGLE_FILE=True`. Use `SPLIT_SEED` and
-`SPLIT_RATIOS=(0.8,0.1,0.1)` to generate reproducible document/source-grouped
-train/dev/test splits without modifying the input. For initial tests,
-`VALIDATE_DATA=False` skips full corpus diagnostics and figures; enable it
-before research training. Model trainers still perform train/dev checks. The
-[splitter contract and example](docs/data.md#optional-single-file-splitting)
-describe manifests, grouping and reuse.
-
-## Explicit multilingual adaptation
-
-The [language-tag and three-model adaptation guide](docs/multilingual-adaptation.md)
-documents a shared JSONL `source_lang`/`target_lang` contract, non-destructive
-migration, and model-specific conditioning for NLLB, IndicTrans2 and
-BhashaVerse/OneNMT. Use the existing
-[`01_nllb_research.ipynb`](notebooks/01_nllb_research.ipynb) or the
-dedicated [IndicTrans2](notebooks/03_indictrans2_adaptation.ipynb) and
-[BhashaVerse](notebooks/04_bhashaverse_adaptation.ipynb) notebooks.
-Their vocabularies, runtime requirements and checkpoint guarantees differ:
-an extra text prefix is not native language support. Research inference and
-training paths for unsupported languages require independent verification.
-
-## Pretraining review and additional languages
-
-The [pretraining evaluation guide](docs/pretraining-review.md) and original
-[NLLB notebook](notebooks/01_nllb_research.ipynb) now support corpus diagnostics,
-visualizations, a held-out **development** model comparison, and explicit approval
-before real-data training. The scope covers Bhojpuri, Maithili, Magahi,
-**Awadhi, Braj, Nepali and Marwari**. Native checkpoint support is
-model-specific, and not all seven have NLLB or IndicTrans2 tokens. Optional
-IndicTrans2 and BhashaVerse/OneNMT development comparators require their
-upstream inference dependencies and are disabled by default; BhashaVerse must
-use its custom fairseq dictionary/SentencePiece ID mapping. The test set is
-held out until after model training, and review artifacts are included in the
-current-run ZIP.
-
-## Model strategy
-
-| Model | Bhojpuri | Maithili | Magahi | Role |
-|---|---|---|---|---|
-| `facebook/nllb-200-distilled-600M` | `bho_Deva` | `mai_Deva` | `mag_Deva` | Implemented native HF baseline + LoRA/full finetuning |
-| IndicTrans2 distilled 200M / Indic–Indic 320M | Not listed | `mai_Deva` | Not listed | Regional comparator; use upstream toolkit, not this NLLB runner |
-| BhashaVerse / OneNMT | Not in inspected language map | Listed | Not in inspected language map | HF vocabulary/behavior preflight; training backend pending |
-| Extended NLLB | Already supported | Already supported | Already supported | New language tags for genuinely unsupported varieties |
-
-Coverage: [NLLB inventory](https://github.com/huggingface/transformers/blob/v4.46.3/src/transformers/models/nllb/tokenization_nllb.py), [IndicTrans2 upstream](https://github.com/AI4Bharat/IndicTrans2). These are established research baselines, not an exhaustive ranking of current models. Benchmark before making SOTA claims. NLLB weights are **CC-BY-NC 4.0** ([license](https://github.com/facebookresearch/fairseq/blob/nllb/LICENSE.model.md)); public weights do not imply unrestricted open-source licensing. The toolkit is MIT; weights and datasets keep their own terms.
-
-## OneNMT compatibility before adaptation
-
-Run the [preflight module](docs/preflight.md) before changing BhashaVerse vocabulary or adding new-language/new-domain training data:
-
-```bash
-pip install -e '.[preflight]'
-bhaashik preflight --assets data/local/onenmt-original \
-  --corpus data/preflight/probes.jsonl --report runs/preflight/original.json
-# Compare a separately prepared candidate tokenizer/dictionary/checkpoint:
-bhaashik preflight --assets data/local/onenmt-original \
-  --candidate-assets data/local/onenmt-candidate \
-  --corpus data/local/probes.jsonl --report runs/preflight/candidate.json --strict
-```
-
-It checks preserved IDs, segmentation/coverage, emitted vs inactive token proposals, model row counts, and direction/context handling. `bhaashik hf-regression` optionally runs local HF MBart checkpoints against retained-language and adaptation probes, with metric-drop gates, output triage and independent reference replay. No architecture conversion is performed. Passing structural checks does not establish translation quality, and original assets remain unchanged. See the guide for append-plan and GPU regression commands. The separate [candidate repair commands](docs/repairs.md) can fix generation IDs, restore trusted dictionary IDs, append entries, extend/retrain/replace SPM, and initialize model rows. Each writes a new candidate with a change manifest; OneNMT training remains a separate step.
-
-## Research workflow
-
-1. Collect licensed bitext with stable IDs, provenance, domain and document IDs. Review language identity with native speakers. Do not treat Hindi-normalized text as gold for another language.
-2. Freeze document-disjoint train/dev/test splits; run `audit` before training. The runner also checks train/dev leakage. Keep test data out of tuning and synthetic data generation.
-3. Generate untouched NLLB predictions, then compare matched-budget LoRA and full finetuning. Use seeds 13, 42, 87; report each run and mean/dispersion.
-4. Evaluate both directions separately for each language and domain. Report sacreBLEU, chrF++ and signatures, paired bootstrap deltas, sample counts, runtime, data hashes and checkpoint revisions.
-5. Blind and double-annotate outputs using the exported sheet. Report agreement before adjudication; audit omissions, hallucinations, Hindi drift, agreement, names, numerals, honorifics and dialectal variation.
-
-[Research protocol](docs/research.md) · [Data contract](docs/data.md) · [Language extension](docs/extension.md) · [OneNMT preflight](docs/preflight.md) · [Candidate repairs](docs/repairs.md) · [Limitations](docs/limitations.md)
-
-Build and check the static portal locally:
-
-```bash
-# In the activated environment: pip install -e '.[dev]'
-python scripts/build_site.py
-python -m http.server 8000 --directory build/site
-# Optional browser checks: pip install -e '.[web]'; playwright install chromium
-# In a second terminal: python scripts/check_site.py
-```
-
-The `docs/` directory contains the sources for a static research portal. GitHub Actions tests the toolkit and deploys it to Pages after successful tests on `main`. The portal accepts real evaluation JSON locally and contains no fabricated scores. Pages must use GitHub Actions as its source.
-
-## Scope
-
-Implemented: NLLB training/inference, LoRA merged HF export, full finetuning, language-token initialization, data auditing, corpus metrics, paired bootstrap, heuristic triage, human annotation export, read-only OneNMT vocabulary/HF behavior preflight, and separate candidate repair operations. OneNMT/IndicTrans2 training, automatic corpus acquisition, backtranslation, COMET and annotation agreement computation are documented follow-up experiments, not implemented features. No model weights or research results ship with this repository.

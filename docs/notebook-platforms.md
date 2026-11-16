@@ -1,3 +1,11 @@
+> **Current default:** the notebook's first settings cell contains
+> `stage="lowest_baseline"`. It performs full dev/test inference without
+> fine-tuning and archives its own results. Read
+> [the four-stage workflow](four-stage-workflow.md). Change
+> `stage="low_baseline"` and `allow_training=True` to run training.
+> The output tree is now stage-specific under `runs/RUN_NAME/STAGE/`,
+> with a separate `STAGE-artifacts.zip` per stage.
+
 # Everyday Kaggle and Colab workflow (BhaashikMTFinetuning)
 
 This guide is for researchers using notebooks without a terminal. You can

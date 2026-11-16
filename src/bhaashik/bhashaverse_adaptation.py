@@ -137,6 +137,7 @@ def train_bhashaverse(config_path):
     started = time.time()
     trained = trainer.train(resume_from_checkpoint=cfg.get("resume_from_checkpoint"))
     dev_result = trainer.evaluate()
+    write_json(output / "trainer_history.json", trainer.state.log_history)
     if mode == "lora":
         model = model.merge_and_unload()
     model.config.use_cache = True
@@ -157,7 +158,7 @@ def train_bhashaverse(config_path):
 
 
 def generate_bhashaverse_dev(assets, dev_path, output, device=None, batch_size=1,
-                             max_new_tokens=64):
+                             max_new_tokens=64, beams=1, length_penalty=1.0):
     """Generate tagged JSONL without a generic AutoTokenizer."""
     from .hf_regression import generate_probes
     import torch
@@ -169,7 +170,8 @@ def generate_bhashaverse_dev(assets, dev_path, output, device=None, batch_size=1
     outputs, metadata = generate_probes(
         assets, rows, device=device or ("cuda" if torch.cuda.is_available() else "cpu"),
         precision="fp16" if (device or ("cuda" if torch.cuda.is_available() else "cpu")) == "cuda" else "fp32",
-        max_new_tokens=max_new_tokens, batch_size=batch_size)
+        max_new_tokens=max_new_tokens, batch_size=batch_size,
+        beams=beams, length_penalty=length_penalty)
     destination = Path(output)
     if destination.exists():
         raise FileExistsError(destination)
