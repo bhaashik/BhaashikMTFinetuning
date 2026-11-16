@@ -1,3 +1,11 @@
+> **Data integrity and cleanup:** Repeated parallel pairs within a
+> train/dev/test partition are allowed by default. Cross-split overlap
+> and accidental splitting duplication remain mandatory errors. Set
+> `reject_within_split_duplicates=True` in the first settings cell for
+> strict corpus cleanup. An optional preview-first cleanup cell at the
+> bottom of each model notebook removes only the named generated stage
+> after exact confirmation. See [four-stage workflow](docs/four-stage-workflow.md).
+
 # Bhaashik · Hindi-belt neural machine translation
 
 A reproducible research toolkit for evaluating and adapting encoder–decoder
