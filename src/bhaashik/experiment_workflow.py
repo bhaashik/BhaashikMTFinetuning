@@ -95,7 +95,8 @@ def check_settings(cfg, *, model_family):
             raise ValueError(f"{name} must be a nonnegative integer")
     # Older notebooks explicitly set reporting flags. New staged notebooks
     # use one 'stage' switch instead; those legacy flags are optional.
-    for name in ("validate_data", "data_report", "pretrain_baseline", "posttrain_test",
+    for name in ("validate_data", "reject_within_split_duplicates", "data_report",
+                 "pretrain_baseline", "posttrain_test",
                  "publication_report", "save_archive", "include_checkpoints", "allow_training"):
         if name in cfg and not isinstance(cfg[name], bool):
             raise ValueError(f"{name} must be set to True or False")
@@ -178,11 +179,16 @@ def prepare_parallel_data(root, cfg, *, model_family, print_summary=True):
             seed=cfg["split_seed"], ratios=cfg.get("split_ratios", (.8, .1, .1)),
             source_lang=cfg["source_lang"], target_lang=cfg["target_lang"],
             group_by_document=cfg.get("group_by_document", True),
-            validate=cfg["validate_data"],
+            validate=cfg.get("validate_data", False),
+            reject_within_split_duplicates=cfg.get("reject_within_split_duplicates", False),
         )
     paths = {key: data_dir / f"{key}.jsonl" for key in ("train", "dev", "test")}
-    if cfg["validate_data"]:
-        audit(paths)
+    # ALWAYS prevent cross-split leakage, even in quick/pilot mode.
+    # Corpus-native duplicate pairs *within* a split are permitted by default.
+    split_audit = audit(
+        paths,
+        reject_within_split_duplicates=cfg.get("reject_within_split_duplicates", False),
+    )
     counts = {}
     for split, path in paths.items():
         rows, routes = require_routes(path, cfg["source_lang"], cfg["target_lang"])
@@ -193,10 +199,14 @@ def prepare_parallel_data(root, cfg, *, model_family, print_summary=True):
         print(f"Prepared {pair} ({mode}), seed {cfg['split_seed']}: "
               + ", ".join(f"{key}={n}" for key, n in counts.items()))
         print(f"Data directory: {data_dir}")
-        print("Full corpus audit:", "enabled" if cfg["validate_data"] else "OFF (quick experiment)")
+        print("Cross-split leakage check: ON (mandatory)")
+        print("Repeated pairs inside a split:",
+              "REJECT" if cfg.get("reject_within_split_duplicates", False) else "ALLOW")
+        print("Extended corpus diagnostics:",
+              "enabled" if cfg.get("validate_data", False) else "OFF (quick experiment)")
     return {
         "pair": pair, "data_dir": data_dir, "paths": paths,
-        "counts": counts, "converted_jsonl": converted,
+        "counts": counts, "split_audit": split_audit, "converted_jsonl": converted,
         "split_manifest": split_manifest,
         "data_sha256": {part: file_hash(path) for part, path in paths.items()},
     }
