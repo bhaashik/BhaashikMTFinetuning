@@ -93,15 +93,14 @@ def check_settings(cfg, *, model_family):
         value = cfg.get(name)
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise ValueError(f"{name} must be a nonnegative integer")
+    # Older notebooks explicitly set reporting flags. New staged notebooks
+    # use one 'stage' switch instead; those legacy flags are optional.
     for name in ("validate_data", "data_report", "pretrain_baseline", "posttrain_test",
                  "publication_report", "save_archive", "include_checkpoints", "allow_training"):
-        if not isinstance(cfg.get(name), bool):
+        if name in cfg and not isinstance(cfg[name], bool):
             raise ValueError(f"{name} must be set to True or False")
-    if cfg["publication_report"] and not cfg["posttrain_test"]:
+    if "stage" not in cfg and cfg.get("publication_report") and not cfg.get("posttrain_test"):
         raise ValueError("publication_report=True requires posttrain_test=True")
-    if cfg["pretrain_baseline"] and not cfg["posttrain_test"] and model_family == "bhashaverse":
-        # Baseline generation on dev can be run alone; don't constrain it.
-        pass
     if cfg.get("finetune_mode") not in ("lora", "full"):
         raise ValueError("finetune_mode must be lora or full")
     if cfg.get("precision") not in ("fp16", "bf16", "fp32"):
@@ -306,7 +305,7 @@ def write_experiment_config(cfg, prepared, paths, trainer_cfg):
 
 
 def report_data_if_enabled(cfg, prepared, report_dir):
-    if not cfg["data_report"]:
+    if not cfg.get("data_report", False):
         print("Data plots/reports OFF. Set data_report=True for publication preparation.")
         return None
     from .pretrain_review import inspect_splits, plot_review
@@ -319,7 +318,7 @@ def report_data_if_enabled(cfg, prepared, report_dir):
 
 
 def save_optional_archive(root, cfg, paths, *, baseline=None, report=None):
-    if not cfg["save_archive"]:
+    if not cfg.get("save_archive", True):
         print("Artifact ZIP OFF. Set save_archive=True to package this stage.")
         return None
     from .artifacts import archive_experiment
@@ -329,5 +328,5 @@ def save_optional_archive(root, cfg, paths, *, baseline=None, report=None):
         config_path=paths["config"],
         baseline_dir=baseline if baseline and Path(baseline).is_dir() else None,
         report_dir=report if report and Path(report).is_dir() else None,
-        include_checkpoints=cfg["include_checkpoints"],
+        include_checkpoints=cfg.get("include_checkpoints", False),
     )
