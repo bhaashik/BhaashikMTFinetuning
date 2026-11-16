@@ -47,14 +47,15 @@ def archive_experiment(root, run_dir, destination, baseline_dir=None,
 
     # Build the file list before writing to avoid partial ZIPs on input errors.
     files = set()
-    trainer_checkpoints = run / "checkpoints"
     for folder in paths:
         for file in folder.rglob("*"):
             if not file.is_file() or file.is_symlink():
                 continue
             if not file.resolve().is_relative_to(root):
                 raise ValueError(f"File points outside repository: {file}")
-            if not include_checkpoints and trainer_checkpoints in file.parents:
+            if not include_checkpoints and any(
+                    folder.name == "checkpoints"
+                    for folder in file.parents if folder == run or run in folder.parents):
                 continue
             files.add(file)
     if config is not None:
