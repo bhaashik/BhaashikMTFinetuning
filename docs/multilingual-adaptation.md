@@ -1,3 +1,8 @@
+> **Experiment order:** default `lowest_baseline` (untouched
+> model full dev/test reports), then `low_baseline` (training and reports),
+> optionally `decoding_search` and `language_extension`. Detailed
+> instructions are in [four-stage-workflow.md](four-stage-workflow.md).
+
 > **Update for current notebooks:** edit only the single
 > `EXPERIMENT` dictionary at the top; the older `SPLIT_FROM_SINGLE_FILE`,
 > `CONVERT_ALIGNED_TEXT`, and scattered flag examples further down describe
