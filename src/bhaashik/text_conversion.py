@@ -127,3 +127,85 @@ def convert_aligned_text_files(source_file, target_file, output_jsonl, *,
         converted.rename(output)
         (staging / "conversion_manifest.json").rename(manifest_path)
     return manifest
+
+
+def convert_parallel_tsv(input_file, output_jsonl, *, source_lang, target_lang,
+                         has_header=False, id_prefix=None):
+    """Convert one two-column tab-delimited UTF-8 file to tagged JSONL.
+
+    Columns are source<TAB>target; embedded tabs/newlines are not supported.
+    This offers a single-file alternative to two aligned .txt files. The
+    source is immutable and output integrity is checked on repeated runs.
+    """
+    import csv
+    import shutil
+    source_path = Path(input_file).resolve()
+    destination = Path(output_jsonl).resolve()
+    resolve_languages({}, source_lang, target_lang)
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Missing tab-separated parallel file: {source_path}")
+    if source_path == destination or destination.suffix != ".jsonl":
+        raise ValueError("Choose a different output ending in .jsonl")
+    if not isinstance(has_header, bool):
+        raise ValueError("has_header must be True or False")
+    if id_prefix is None:
+        id_prefix = f"{source_lang.split('_')[0]}-{target_lang.split('_')[0]}"
+    if not isinstance(id_prefix, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_.-]*", id_prefix):
+        raise ValueError("id_prefix must be an ASCII filename-safe identifier")
+    expected = {
+        "schema_version": 1, "format": "tab_separated_parallel_text",
+        "input_sha256": file_hash(source_path),
+        "source_lang": source_lang, "target_lang": target_lang,
+        "id_prefix": id_prefix, "has_header": has_header,
+    }
+    manifest_path = Path(str(destination) + ".manifest.json")
+    if destination.exists() or manifest_path.exists():
+        if not destination.is_file() or not manifest_path.is_file():
+            raise FileExistsError("Conversion has an incomplete output/manifest")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if any(manifest.get(k) != v for k, v in expected.items()):
+            raise FileExistsError("Existing conversion used different inputs or settings")
+        if file_hash(destination) != manifest.get("output_sha256"):
+            raise ValueError("Existing conversion differs from its manifest")
+        return manifest
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=f".{destination.stem}.tsv-",
+                                     dir=destination.parent) as work:
+        temp_jsonl = Path(work) / "parallel.jsonl"
+        count = 0
+        with source_path.open(encoding="utf-8-sig", newline="") as raw, \
+             temp_jsonl.open("w", encoding="utf-8") as output:
+            reader = csv.reader(raw, delimiter="\t", quoting=csv.QUOTE_NONE)
+            for line_no, cols in enumerate(reader, 1):
+                if line_no == 1 and has_header:
+                    if len(cols) != 2:
+                        raise ValueError("TSV header must have exactly two columns")
+                    continue
+                if len(cols) != 2 or not all(c.strip() for c in cols):
+                    raise ValueError(
+                        f"TSV line {line_no} must contain exactly two nonempty columns")
+                source, target = cols
+                output.write(json.dumps({
+                    "id": f"{id_prefix}-{line_no:08d}",
+                    "source_lang": source_lang, "target_lang": target_lang,
+                    "source": source, "target": target,
+                }, ensure_ascii=False) + "\n")
+                count += 1
+        if count == 0:
+            raise ValueError("TSV contains no sentence pairs")
+        if file_hash(source_path) != expected["input_sha256"]:
+            raise ValueError("TSV source changed during conversion")
+        manifest = {
+            **expected, "sentence_pairs": count,
+            "output_sha256": file_hash(temp_jsonl),
+            "input_file": str(source_path), "output_file": str(destination),
+        }
+        write_json(Path(work) / "manifest.json", manifest)
+        temp_jsonl.rename(destination)
+        try:
+            (Path(work) / "manifest.json").rename(manifest_path)
+        except BaseException:
+            destination.unlink(missing_ok=True)
+            raise
+    return manifest
