@@ -7,7 +7,7 @@ not silently discarded. The optional settings-cell flag
 when you intentionally conduct stricter corpus analysis.
 
 **Cross-split leakage is never optional.** A repeated normalized source,
-source–target pair, document ID or record ID in different train/dev/test
+source–target pair or record ID in different train/dev/test
 partitions is always an error—even when
 `"validate_data": False`. For corpus files split by this repository, an
 additional complete-input integrity check verifies that every original
