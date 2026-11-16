@@ -86,21 +86,47 @@ def _assign(groups, ratios, seed):
     return assigned
 
 
+
+def verify_split_integrity(original_rows, split_paths):
+    """Require a one-to-one partition of input records, allowing corpus repeats.
+
+    Uses complete JSON row identity and stable source IDs; this detects records
+    accidentally introduced, lost, repeated or changed during splitting.
+    """
+    expected = Counter(json.dumps(row, ensure_ascii=False, sort_keys=True)
+                       for row in original_rows)
+    actual = Counter()
+    for split in SPLITS:
+        for row in read_jsonl(split_paths[split]):
+            actual[json.dumps(row, ensure_ascii=False, sort_keys=True)] += 1
+    if actual != expected:
+        extra = sum((actual - expected).values())
+        missing = sum((expected - actual).values())
+        raise ValueError(
+            f"Split integrity failure: {extra} extra/duplicated and "
+            f"{missing} missing/changed source records")
+    return {"rows_verified": sum(expected.values()), "partition_complete": True}
+
+
 def split_parallel_jsonl(input_path, output_dir, *, seed=42,
                          ratios=(0.8, 0.1, 0.1),
                          source_lang=None, target_lang=None,
-                         group_by_document=True, validate=False):
+                         group_by_document=True, validate=False,
+                         reject_within_split_duplicates=False):
     """Produce train.jsonl/dev.jsonl/test.jsonl and a SHA-256 split manifest.
 
     Input is never overwritten. Re-running with the same input/seed/ratios
     reuses a matching, hash-verified split; changed inputs or options fail.
-    'validate' performs the more expensive exact corpus audit; basic schema,
-    output integrity and grouping checks always apply.
+    Exact partition integrity and cross-split leakage checks always run.
+    'reject_within_split_duplicates' optionally rejects naturally repeated
+    sentence pairs inside one split; 'validate' remains an optional corpus
+    diagnostic signal and does not disable these mandatory checks.
     """
     if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
         raise ValueError("seed must be a nonnegative integer")
-    if not isinstance(group_by_document, bool) or not isinstance(validate, bool):
-        raise ValueError("group_by_document and validate must be booleans")
+    if any(not isinstance(value, bool) for value in (
+            group_by_document, validate, reject_within_split_duplicates)):
+        raise ValueError("group_by_document, validate, and reject_within_split_duplicates must be booleans")
     fractions = _ratios(ratios)
     if (source_lang is None) != (target_lang is None):
         raise ValueError("Supply both language defaults or neither")
@@ -132,6 +158,7 @@ def split_parallel_jsonl(input_path, output_dir, *, seed=42,
         "source_lang": source_lang,
         "target_lang": target_lang,
         "group_by_document": group_by_document,
+        "reject_within_split_duplicates": reject_within_split_duplicates,
     }
     paths = {part: destination / f"{part}.jsonl" for part in SPLITS}
     manifest_path = destination / "split_manifest.json"
@@ -145,8 +172,8 @@ def split_parallel_jsonl(input_path, output_dir, *, seed=42,
                manifest.get("output_sha256", {}).get(part)
                for part, path in paths.items()):
             raise ValueError("Saved split differs from its manifest; refusing reuse")
-        if validate:
-            audit(paths)
+        verify_split_integrity(rows, paths)
+        audit(paths, reject_within_split_duplicates=reject_within_split_duplicates)
         return manifest
 
     allocated = _assign(groups, fractions, seed)
@@ -171,8 +198,8 @@ def split_parallel_jsonl(input_path, output_dir, *, seed=42,
             split_paths[part] = path
             distribution[part] = dict(sorted(directions.items()))
             output_hashes[part] = file_hash(path)
-        if validate:
-            audit(split_paths)
+        integrity = verify_split_integrity(rows, split_paths)
+        audit(split_paths, reject_within_split_duplicates=reject_within_split_duplicates)
         manifest = {
             **expected,
             "input_path": str(input_path),
@@ -180,6 +207,8 @@ def split_parallel_jsonl(input_path, output_dir, *, seed=42,
             "actual_ratios": {name: counts[name] / len(rows) for name in SPLITS},
             "group_count": len(groups),
             "largest_group": max(map(len, groups)),
+            "split_integrity": integrity,
+            "cross_split_leakage_checked": True,
             "routes_by_split": distribution,
             "output_sha256": output_hashes,
             "validation_performed_at_creation": validate,
