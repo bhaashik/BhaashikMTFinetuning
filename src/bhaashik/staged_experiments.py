@@ -389,3 +389,18 @@ def run_stage(root, cfg, prepared, paths, trainer_cfg_path, *, family):
         stage_manifest["error"] = str(error)
         write_json(stage_dir / "stage_manifest.json", stage_manifest)
         raise
+    finally:
+        # A baseline contains no trained checkpoint but is still a complete
+        # experiment. Persist results even if the model training/inference fails.
+        if cfg.get("save_archive", True):
+            from .experiment_workflow import save_optional_archive
+            try:
+                archive = save_optional_archive(
+                    root, cfg, paths,
+                    report=paths["report"] if paths["report"].is_dir() else None)
+                print("Saved stage snapshot:", archive)
+            except FileExistsError:
+                print("Stage archive already exists; leaving it untouched:", paths["archive"])
+            except Exception as archive_error:
+                print("WARNING: automatic stage snapshot failed:", archive_error)
+                print("Stage files remain in:", stage_dir)
