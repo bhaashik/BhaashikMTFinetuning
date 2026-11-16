@@ -241,8 +241,15 @@ def write_experiment_config(cfg, prepared, paths, trainer_cfg):
     serializable = json.loads(json.dumps(record, default=str))
     if config_path.exists():
         old = json.loads(config_path.read_text(encoding="utf-8"))
+        # Review-only flags can change AFTER training without creating a new
+        # checkpoint path; preserve the exact original training configuration.
+        # Trainer settings and data hashes must NEVER silently change.
+        stable_keys = ("trainer", "data_sha256", "data_counts", "split_manifest")
+        if any(old.get(key) != serializable[key] for key in stable_keys):
+            raise FileExistsError(
+                f"Saved training settings/data differ; choose a new run_label: {config_path}")
         if old != serializable:
-            raise FileExistsError(f"Saved settings differ; choose a new run_label: {config_path}")
+            print("Review-only settings changed; original training config preserved.")
     else:
         write_json(config_path, serializable)
     # Keep a trainer-only config next to it for existing train(config_path).
@@ -273,8 +280,12 @@ def save_optional_archive(root, cfg, paths, *, baseline=None, report=None):
         print("Artifact ZIP OFF. Set save_archive=True to package this run.")
         return None
     from .artifacts import archive_experiment
+    destination = paths["archive"]
+    if cfg["publication_report"]:
+        destination = destination.with_name(
+            destination.stem + "-publication" + destination.suffix)
     return archive_experiment(
-        root, paths["run"], paths["archive"],
+        root, paths["run"], destination,
         config_path=paths["config"],
         baseline_dir=baseline if baseline and Path(baseline).is_dir() else None,
         report_dir=report if report and Path(report).is_dir() else None,
