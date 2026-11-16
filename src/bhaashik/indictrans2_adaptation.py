@@ -186,6 +186,7 @@ def train_indictrans2(config_path):
 def generate_indictrans2(model_id, dev_path, output, *, strategy="native",
                         proxy_src=None, proxy_tgt=None, batch_size=4,
                         max_length=256, max_new_tokens=256, beams=4,
+                        length_penalty=1.0,
                         allow_remote_code=False):
     """Opt-in inference for native or explicitly adapted IndicTrans2 models.
 
@@ -219,6 +220,7 @@ def generate_indictrans2(model_id, dev_path, output, *, strategy="native",
                           max_length=max_length, return_tensors="pt",
                           return_attention_mask=True).to(device)
             sequences = model.generate(**encoded, num_beams=beams,
+                                       length_penalty=length_penalty,
                                        max_new_tokens=max_new_tokens)
             raw = tok.batch_decode(sequences, skip_special_tokens=True)
             for text, route in zip(raw, route_batch):
@@ -231,7 +233,8 @@ def generate_indictrans2(model_id, dev_path, output, *, strategy="native",
     output = _write_predictions(rows, predicted, output)
     write_json(str(output) + ".manifest.json", {
         "model": str(model_id), "strategy": strategy, "proxy_src": proxy_src,
-        "proxy_tgt": proxy_tgt, "n": len(rows), "input_sha256": file_hash(dev_path),
+        "proxy_tgt": proxy_tgt, "beams": beams, "length_penalty": length_penalty,
+        "n": len(rows), "input_sha256": file_hash(dev_path),
         "output_sha256": file_hash(output),
         "warning": "Proxy-target raw output bypasses target postprocessing and needs expert review."})
     return output
