@@ -149,8 +149,17 @@ def train_indictrans2(config_path):
         raise ValueError("Mixed precision requires GPU; use fp32 on CPU")
     if precision == "bf16" and not torch.cuda.is_bf16_supported():
         raise ValueError("GPU does not support bf16")
+    from .checkpoint_storage import (
+        checkpoint_training_options, create_backup_callback,
+        cleanup_scratch_checkpoints, checkpoint_storage_report,
+    )
+    # Preflight before checkpoint creation. Scratch storage is independent of
+    # the final exported model under /kaggle/working.
+    checkpoint_options = checkpoint_training_options(cfg, output)
+    backup_callback = create_backup_callback(cfg)
+    print("Checkpoint storage:", checkpoint_storage_report(cfg, output))
     args = Seq2SeqTrainingArguments(
-        output_dir=str(output / "checkpoints"),
+        **checkpoint_options,
         per_device_train_batch_size=cfg.get("batch_size", 1),
         per_device_eval_batch_size=cfg.get("batch_size", 1),
         gradient_accumulation_steps=cfg.get("gradient_accumulation_steps", 16),
@@ -160,15 +169,14 @@ def train_indictrans2(config_path):
         fp16=precision == "fp16", bf16=precision == "bf16",
         gradient_checkpointing=cfg.get("gradient_checkpointing", True),
         gradient_checkpointing_kwargs={"use_reentrant": False},
-        eval_strategy="epoch", save_strategy="epoch", save_total_limit=2,
-        load_best_model_at_end=True, metric_for_best_model="eval_loss",
-        greater_is_better=False, report_to="none", logging_steps=10,
+        eval_strategy="epoch", report_to="none", logging_steps=10,
         dataloader_num_workers=0, predict_with_generate=False,
         optim="adamw_torch", seed=cfg.get("seed", 42))
     trainer = Seq2SeqTrainer(
         model=model, args=args, tokenizer=tok,
         train_dataset=train_ds, eval_dataset=dev_ds,
-        data_collator=DataCollatorForSeq2Seq(tok, model=model, pad_to_multiple_of=8))
+        data_collator=DataCollatorForSeq2Seq(tok, model=model, pad_to_multiple_of=8),
+        callbacks=[backup_callback])
     started = time.time()
     result = trainer.train(resume_from_checkpoint=cfg.get("resume_from_checkpoint"))
     dev_metrics = trainer.evaluate()
@@ -177,6 +185,7 @@ def train_indictrans2(config_path):
         model = model.merge_and_unload()
     model.save_pretrained(output, safe_serialization=True)
     tok.save_pretrained(output)
+    cleanup_scratch_checkpoints(cfg, output)
     write_json(output / "run_manifest.json", {
         "model": selected_model, "model_revision": cfg.get("revision"),
         "config": cfg, "data": audited, "routes": sorted({(r["source_lang"], r["target_lang"]) for r in routes}),

@@ -1,3 +1,9 @@
+> **Stage 2/4 checkpoint storage:** Large intermediate checkpoints now
+> default to scratch (`/kaggle/tmp` on Kaggle) and minimal,
+> model-only retention. For automatic verified external backups, or
+> exact-resume checkpoints, see [checkpoint-storage.md](checkpoint-storage.md).
+> Stage ZIPs/final exports still require working-directory space.
+
 ## Duplicate-pair policy and split integrity
 
 Naturally repeated source–target pairs **within the same split** are

@@ -152,8 +152,17 @@ def train(config_path):
         raise ValueError("Mixed precision config requires a CUDA GPU; select fp32 on CPU")
     if precision == "bf16" and not torch.cuda.is_bf16_supported():
         raise ValueError("This GPU does not support bf16; use fp16 or fp32")
+    from .checkpoint_storage import (
+        checkpoint_training_options, create_backup_callback,
+        cleanup_scratch_checkpoints, checkpoint_storage_report,
+    )
+    # Preflight before checkpoint creation. Scratch storage is independent of
+    # the final exported model under /kaggle/working.
+    checkpoint_options = checkpoint_training_options(config, output)
+    backup_callback = create_backup_callback(config)
+    print("Checkpoint storage:", checkpoint_storage_report(config, output))
     args = Seq2SeqTrainingArguments(
-        output_dir=str(output / "checkpoints"), seed=seed, data_seed=seed,
+        **checkpoint_options, seed=seed, data_seed=seed,
         per_device_train_batch_size=config.get("batch_size", 1),
         per_device_eval_batch_size=config.get("batch_size", 1),
         gradient_accumulation_steps=config.get("gradient_accumulation_steps", 16),
@@ -162,13 +171,13 @@ def train(config_path):
         fp16=precision == "fp16", bf16=precision == "bf16",
         gradient_checkpointing=config.get("gradient_checkpointing", True),
         gradient_checkpointing_kwargs={"use_reentrant": False},
-        eval_strategy="epoch", save_strategy="epoch", load_best_model_at_end=True,
-        metric_for_best_model="eval_loss", greater_is_better=False, save_total_limit=2,
+        eval_strategy="epoch",
         logging_steps=10, report_to="none", dataloader_num_workers=0,
         predict_with_generate=False, optim="adamw_torch")
     trainer = Seq2SeqTrainer(model=model, args=args, tokenizer=tokenizer,
                 train_dataset=dataset(config["train_file"]), eval_dataset=dataset(config["dev_file"]),
-                data_collator=DataCollatorForSeq2Seq(tokenizer, model=model, pad_to_multiple_of=8))
+                data_collator=DataCollatorForSeq2Seq(tokenizer, model=model, pad_to_multiple_of=8),
+                callbacks=[backup_callback])
     trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     train_result = trainer.train(resume_from_checkpoint=config.get("resume_from_checkpoint"))
     dev_metrics = trainer.evaluate()
@@ -178,6 +187,7 @@ def train(config_path):
     model.config.use_cache = True
     model.save_pretrained(output, safe_serialization=True)
     tokenizer.save_pretrained(output)
+    cleanup_scratch_checkpoints(config, output)
     # Carry the marker so subsequent LoRA runs cannot silently freeze new embeddings.
     extension = Path(config["model"], "bhaashik_extension.json")
     if extension.exists():
