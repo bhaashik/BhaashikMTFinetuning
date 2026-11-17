@@ -1,3 +1,9 @@
+> **Kaggle disk exhaustion after an epoch:** Intermediate Trainer
+> checkpoints now default to `/kaggle/tmp` and model-only saves,
+> while the final model and stage ZIP stay in `/kaggle/working`.
+> Use the [checkpoint and Google Drive guide](checkpoint-storage.md)
+> to configure backup, monitor exact free space, and understand resume limits.
+
 > **Experiment cleanup:** If a Kaggle run was incorrect, the model
 > notebooks contain a disabled, dry-run cleanup cell at the end.
 > In the settings cell select `cleanup_action="preview"`, then execute
