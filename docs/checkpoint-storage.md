@@ -66,6 +66,12 @@ This is a space-efficient experiment:
   It does not guarantee that a later save fits: checkpoint size and
   free space change over time.
 
+**Important:** Before creating an uncompressed stage ZIP, the library now
+checks that the destination has room for the whole ZIP plus a 256 MiB reserve.
+If not, it raises an explicit error and leaves the stage files intact rather
+than filling the disk. This is a conservative check, not a guarantee of
+capacity under concurrent disk usage.
+
 **Important:** Stage-result ZIPs and exported final model still consume
 `/kaggle/working` output. If that filesystem is nearly full, even
 external checkpoints cannot make the final export fit. Keep the saved
