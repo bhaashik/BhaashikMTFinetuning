@@ -53,6 +53,14 @@ def check_settings(cfg, *, model_family):
     stage = cfg.get("stage", "lowest_baseline")
     if stage not in STAGES:
         raise ValueError(f"stage must be one of {STAGES}")
+    if "checkpoint_storage" in cfg and cfg["checkpoint_storage"] not in ("auto", "working", "scratch", "custom"):
+        raise ValueError("checkpoint_storage must be auto, working, scratch or custom")
+    if "checkpoint_backup" in cfg and cfg["checkpoint_backup"] not in ("none", "rclone", "mounted_directory"):
+        raise ValueError("checkpoint_backup must be none, rclone or mounted_directory")
+    if cfg.get("checkpoint_model_only", True) and cfg.get("resume_from_checkpoint"):
+        raise ValueError("Exact resume requires checkpoint_model_only=False")
+    if "checkpoint_limit" in cfg and (type(cfg["checkpoint_limit"]) is not int or cfg["checkpoint_limit"] < 1):
+        raise ValueError("checkpoint_limit must be a positive integer")
     if "result_plots" in cfg and not isinstance(cfg["result_plots"], bool):
         raise ValueError("result_plots must be True or False")
     if "search_grid" in cfg:
@@ -242,6 +250,18 @@ def training_parameters(cfg, prepared, paths, *, model_family):
         "max_length": cfg["max_length"], "max_steps": cfg["max_steps"],
         "epochs": cfg["epochs"], "precision": cfg["precision"],
         "gradient_checkpointing": cfg.get("gradient_checkpointing", True),
+        # Intermediate Trainer checkpoints are separate from exported models.
+        "checkpoint_storage": cfg.get("checkpoint_storage", "auto"),
+        "checkpoint_scratch_root": cfg.get("checkpoint_scratch_root"),
+        "checkpoint_custom_root": cfg.get("checkpoint_custom_root"),
+        "checkpoint_limit": cfg.get("checkpoint_limit", 1),
+        "checkpoint_model_only": cfg.get("checkpoint_model_only", True),
+        "checkpoint_min_free_gib": cfg.get("checkpoint_min_free_gib", 5),
+        "checkpoint_cleanup_on_success": cfg.get("checkpoint_cleanup_on_success", True),
+        "checkpoint_backup": cfg.get("checkpoint_backup", "none"),
+        "checkpoint_rclone_remote": cfg.get("checkpoint_rclone_remote"),
+        "checkpoint_rclone_secret": cfg.get("checkpoint_rclone_secret"),
+        "checkpoint_backup_directory": cfg.get("checkpoint_backup_directory"),
     }
     if model_family == "nllb":
         common.update({
