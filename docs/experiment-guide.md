@@ -1,3 +1,9 @@
+> **Updated checkpoint storage:** The first settings cell now contains
+> `checkpoint_storage`, `checkpoint_limit`,
+> `checkpoint_model_only` and optional `checkpoint_backup` options.
+> The [checkpoint-storage guide](checkpoint-storage.md) explains
+> Kaggle scratch space and Google Drive synchronization.
+
 > **Current experimental stages:** This guide also describes
 > the earlier training-first interface. The updated notebooks now default
 > to `stage="lowest_baseline"`: untouched pretrained model, complete
