@@ -112,3 +112,23 @@ def test_rclone_configuration_fails_fast_without_remote(tmp_path, monkeypatch):
     monkeypatch.setattr(shutil, "which", lambda command: None)
     with pytest.raises(RuntimeError, match="rclone executable"):
         backup_preflight({**cfg, "checkpoint_rclone_remote": "drive:checkpoints"})
+
+
+def test_pinned_huggingface_training_arguments_accept_compact_checkpoint_options(tmp_path):
+    from transformers import Seq2SeqTrainingArguments
+
+    model_dir = tmp_path / "run" / "model"
+    cfg = {"checkpoint_storage": "custom",
+           "checkpoint_custom_root": str(tmp_path / "scratch"),
+           "checkpoint_min_free_gib": 0,
+           "checkpoint_model_only": True, "checkpoint_limit": 1}
+    options = checkpoint_training_options(cfg, model_dir)
+    args = Seq2SeqTrainingArguments(
+        **options, eval_strategy="epoch",
+        per_device_train_batch_size=1, per_device_eval_batch_size=1,
+        report_to="none", use_cpu=True,
+    )
+    assert args.save_only_model is True
+    assert args.save_total_limit == 1
+    assert args.load_best_model_at_end is True
+    assert str(args.output_dir).startswith(str(tmp_path / "scratch"))
