@@ -1,3 +1,9 @@
+> **Full-finetuning checkpoint storage:** Trainer now defaults to
+> model-only, minimally retained checkpoints in Kaggle scratch
+> (`/kaggle/tmp`) rather than `/kaggle/working`. Optional verified
+> Google Drive backup is available through rclone/Kaggle Secrets or
+> a Colab-mounted Drive. See [checkpoint storage](docs/checkpoint-storage.md).
+
 > **Data integrity and cleanup:** Repeated parallel pairs within a
 > train/dev/test partition are allowed by default. Cross-split overlap
 > and accidental splitting duplication remain mandatory errors. Set
