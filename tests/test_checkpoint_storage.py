@@ -82,7 +82,8 @@ def test_no_backup_does_not_require_rclone(tmp_path):
            "checkpoint_backup": "none"}
     opts = checkpoint_training_options(cfg, model)
     assert backup_preflight(cfg) is None
-    assert backup_checkpoint(Path(opts["output_dir"]), cfg) is None if Path(opts["output_dir"]).is_dir() else True
+    assert Path(opts["output_dir"]).is_dir()
+    assert backup_checkpoint(Path(opts["output_dir"]), cfg) is None
 
 
 def test_missing_mount_and_no_cleanup_of_custom_storage(tmp_path):
