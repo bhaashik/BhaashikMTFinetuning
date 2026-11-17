@@ -1,5 +1,6 @@
 """Archive only selected MT experiment artifacts, not every run in the workspace."""
 from pathlib import Path
+import shutil
 from zipfile import ZipFile, ZIP_STORED
 
 
@@ -66,6 +67,18 @@ def archive_experiment(root, run_dir, destination, baseline_dir=None,
         raise ValueError(f"No experiment files found in {run}")
 
     destination.parent.mkdir(parents=True, exist_ok=True)
+    # ZIP_STORED duplicates model bytes while archiving. Avoid filling
+    # /kaggle/working with an archive that cannot fit.
+    archive_bytes = sum(file.stat().st_size for file in files)
+    available = shutil.disk_usage(destination.parent).free
+    reserve = 256 * 1024 * 1024
+    if archive_bytes + reserve > available:
+        raise OSError(
+            f"Not enough free disk for stage ZIP at {destination.parent}: "
+            f"need approximately {(archive_bytes + reserve) / 2**30:.2f} GiB "
+            f"(including safety reserve), have {available / 2**30:.2f} GiB. "
+            "The stage files are intact. Free space, disable save_archive, "
+            "or move exported results to persistent storage.")
     try:
         with ZipFile(destination, mode="x", compression=ZIP_STORED, allowZip64=True) as archive:
             for file in sorted(files):
